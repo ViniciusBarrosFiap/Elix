@@ -104,7 +104,7 @@ export default function HomeScreen() {
         index={0} // abre no primeiro ponto
         snapPoints={snapPoints}
         backdropComponent={renderBackdrop}
-        backgroundStyle={{ backgroundColor: "black" }}
+       backgroundComponent={renderBackground}
       >
         <BottomSheetView style={{ flex: 1, alignItems: "center", padding: 24 }}>
           <TouchableOpacity
