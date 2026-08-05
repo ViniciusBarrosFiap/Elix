@@ -30,6 +30,8 @@ export interface Pergunta {
 
   pergunta: string;
 
+  dica: string;
+
   alternativas: {
     A: Alternativas["A"];
     B: Alternativas["B"];

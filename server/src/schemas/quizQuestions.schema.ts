@@ -1,3 +1,5 @@
+// Espelha src/types/quizQuestions.ts do app (com o campo `id` adicional, ver documentação).
+
 export interface QuizOption {
   id: string;
   rotulo: string;

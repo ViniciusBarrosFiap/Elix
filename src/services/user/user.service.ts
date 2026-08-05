@@ -13,11 +13,16 @@ export const UserService = {
       .setData(data);
   },
 
-  updateUser(
+  async updateUser(
     updates: Partial<UserData>
   ) {
+    const data =
+      await UserRepository.updateUser(updates);
+
     useUserDataStore
       .getState()
-      .updateUser(updates);
+      .setData(data);
+
+    return data;
   },
 };

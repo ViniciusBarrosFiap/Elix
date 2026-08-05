@@ -11,7 +11,7 @@
       "supportsTablet": true
     },
     "android": {
-       "softwareKeyboardLayoutMode": "pan",
+      "softwareKeyboardLayoutMode": "pan",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE"
       },
@@ -35,7 +35,8 @@
           }
         }
       ],
-      "expo-font"
+      "expo-font",
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,

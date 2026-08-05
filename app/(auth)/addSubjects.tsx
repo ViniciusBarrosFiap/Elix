@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, Pressable, StatusBar, TextInput, TouchableOpacity, Button } from 'react-native';
+import { Alert, View, Text, Pressable, StatusBar, TextInput, TouchableOpacity, Button } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
@@ -39,18 +39,22 @@ export default function DisciplineSelectionScreen() {
         setIsAdding(false);
     };
 
-    function handleFinishSetup() {
-        UserService.updateUser({
-            disciplinas: disciplines.map(d => d.name),
-            primeiroAcesso: false,
-        });
-        router.replace({
-            pathname: "/loadingScreen",
-            params: {
-                next: "/home",
-                title: "Processando informações...",
-            }
-        })
+    async function handleFinishSetup() {
+        try {
+            await UserService.updateUser({
+                disciplinas: disciplines.map(d => d.name),
+                primeiroAcesso: false,
+            });
+            router.replace({
+                pathname: "/loadingScreen",
+                params: {
+                    next: "/home",
+                    title: "Processando informações...",
+                }
+            })
+        } catch {
+            Alert.alert("Erro", "Não foi possível salvar suas disciplinas. Tente novamente.");
+        }
     }
 
     return (

@@ -1,11 +1,14 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Animated,
   Dimensions,
+  FlatList,
   Image,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -19,6 +22,8 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   ArrowLeft,
+  BookOpen,
+  ChevronDown,
   ChevronRight,
   FileText,
   Paperclip,
@@ -32,6 +37,9 @@ import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as DocumentPicker from 'expo-document-picker';
 import { UserService } from '@/src/services/user/user.service';
+import { StudyContentService } from '@/src/services/studyContent/studyContent.service';
+import { MacroTemaListItem } from '@/src/services/studyContent/studyContent.repository';
+import { MaterialsService } from '@/src/services/materials/materials.service';
 
 type TagItem = {
   id: string;
@@ -77,6 +85,30 @@ export default function AddContent() {
 
   const [newTagText, setNewTagText] = useState('');
   const [isAddingTag, setIsAddingTag] = useState(false);
+
+  // Disciplina (macrotema) a que este material pertence — escolha obrigatória.
+  const [macroTemas, setMacroTemas] = useState<MacroTemaListItem[]>([]);
+  const [isLoadingMacroTemas, setIsLoadingMacroTemas] = useState(true);
+  const [selectedMacroTemaId, setSelectedMacroTemaId] = useState<string | null>(null);
+  const [isMacroTemaPickerOpen, setIsMacroTemaPickerOpen] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  useEffect(() => {
+    async function loadMacroTemas() {
+      try {
+        const data = await StudyContentService.listMacroTemas();
+        setMacroTemas(data);
+      } catch {
+        Alert.alert('Erro', 'Não foi possível carregar suas disciplinas.');
+      } finally {
+        setIsLoadingMacroTemas(false);
+      }
+    }
+
+    loadMacroTemas();
+  }, []);
+
+  const selectedMacroTema = macroTemas.find((m) => m.id === selectedMacroTemaId);
 
   const handleRemoveTag = (id: string) => {
     setTags((prev) => prev.filter((t) => t.id !== id));
@@ -161,17 +193,41 @@ export default function AddContent() {
   }
 
   async function handleGenerate() {
-    // await uploadFiles(files);
-    await UserService.updateUser({
-      fezUpload: true,
-    });
-    router.replace({
-      pathname: "/loadingScreen",
-      params: {
-        next: "/home",
-        title: "Gerando revisão...",
-      }
-    })
+    if (!selectedMacroTemaId) {
+      Alert.alert('Selecione uma disciplina', 'Escolha a qual disciplina este material pertence antes de gerar a revisão.');
+      return;
+    }
+
+    if (!file) {
+      Alert.alert('Selecione um arquivo', 'Anexe um material (PDF ou DOCX) antes de gerar a revisão.');
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      await MaterialsService.uploadFile(
+        { uri: file.uri, name: file.name, mimeType: file.mimeType },
+        selectedMacroTemaId,
+        tags.map((t) => t.label)
+      );
+
+      await UserService.updateUser({
+        fezUpload: true,
+      });
+
+      router.replace({
+        pathname: "/loadingScreen",
+        params: {
+          next: "/home",
+          title: "Gerando revisão...",
+        }
+      })
+    } catch (error) {
+      const mensagem = error instanceof Error ? error.message : 'Não foi possível gerar sua revisão agora.';
+      Alert.alert('Erro ao gerar revisão', mensagem);
+    } finally {
+      setIsGenerating(false);
+    }
   }
 
   async function handlePickFile() {
@@ -237,6 +293,92 @@ export default function AddContent() {
 
 
   
+
+        {/* Disciplina (macrotema) — obrigatório */}
+        <View className="mt-5">
+          <View className="rounded-3xl p-4">
+            <View className="flex-row items-center mb-6">
+              <View className="w-12 h-12 rounded-xl bg-[#1a1528] items-center justify-center border border-[#8a2be2]/20 mr-4">
+                <BookOpen size={22} color="#8A2BE2" />
+              </View>
+              <View className="flex-1">
+                <View className="flex-row items-center mb-1.5">
+                  <Text className="text-lg font-semibold text-[#f8f8f8] mr-3">
+                    Disciplina
+                  </Text>
+                  <View className="px-2.5 py-1 rounded-full bg-[#8a2be2]/10 border border-[#8a2be2]/20">
+                    <Text className="text-[11px] uppercase font-bold tracking-wider text-[#8A2BE2]">
+                      Obrigatório
+                    </Text>
+                  </View>
+                </View>
+                <Text className="text-sm text-[#a09ba8]">
+                  A qual disciplina este material pertence?
+                </Text>
+              </View>
+            </View>
+
+            <Pressable
+              onPress={() => !isLoadingMacroTemas && setIsMacroTemaPickerOpen(true)}
+              className="w-full flex-row items-center justify-between border border-[#8a2be2]/40 rounded-2xl px-5 py-4 bg-[#110e1b]/50"
+            >
+              <Text className={selectedMacroTema ? 'text-white text-base' : 'text-[#a09ba8] text-base'}>
+                {isLoadingMacroTemas
+                  ? 'Carregando disciplinas...'
+                  : selectedMacroTema
+                    ? `${selectedMacroTema.emoji}  ${selectedMacroTema.nome}`
+                    : 'Selecione uma disciplina'}
+              </Text>
+              <ChevronDown size={20} color="#a09ba8" />
+            </Pressable>
+
+            {!isLoadingMacroTemas && macroTemas.length === 0 && (
+              <Text className="text-xs text-[#a09ba8] mt-3">
+                Nenhuma disciplina cadastrada ainda. Volte ao onboarding para adicionar.
+              </Text>
+            )}
+          </View>
+        </View>
+
+        <Modal
+          visible={isMacroTemaPickerOpen}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setIsMacroTemaPickerOpen(false)}
+        >
+          <Pressable
+            className="flex-1 bg-black/60 justify-end"
+            onPress={() => setIsMacroTemaPickerOpen(false)}
+          >
+            <View className="bg-[#1a1528] rounded-t-3xl overflow-hidden">
+              <View className="px-6 pt-5 pb-4 border-b border-white/10">
+                <Text className="text-white text-base font-semibold">Selecione a disciplina</Text>
+              </View>
+              <FlatList
+                data={macroTemas}
+                keyExtractor={(item) => item.id}
+                style={{ maxHeight: 320 }}
+                renderItem={({ item }) => (
+                  <Pressable
+                    onPress={() => {
+                      setSelectedMacroTemaId(item.id);
+                      setIsMacroTemaPickerOpen(false);
+                    }}
+                    className="flex-row items-center justify-between px-6 py-4 border-b border-white/5"
+                  >
+                    <Text className="text-white text-base">
+                      {item.emoji}  {item.nome}
+                    </Text>
+                    {item.id === selectedMacroTemaId && (
+                      <Feather name="check" size={18} color="#dcb8ff" />
+                    )}
+                  </Pressable>
+                )}
+              />
+              <View style={{ height: 34 }} />
+            </View>
+          </Pressable>
+        </Modal>
 
         {/* Foco da revisão */}
         {/* Aumento de margem de mt-8 para mt-12 e padding interno de p-5 para p-6 */}
@@ -460,8 +602,10 @@ export default function AddContent() {
         locations={[0, 0.35, 1]}
         className="absolute bottom-0 left-0 right-0 px-6 pt-12 pb-8"
       >
-        <TouchableOpacity 
-          onPress={handleGenerate} 
+        <TouchableOpacity
+          onPress={handleGenerate}
+          disabled={isGenerating}
+          style={{ opacity: isGenerating ? 0.7 : 1 }}
           className="active:opacity-90"
         >
           <LinearGradient
@@ -472,10 +616,21 @@ export default function AddContent() {
           >
             {/* Botão de ação principal maior com py-5 e texto text-lg */}
             <View className="flex-row items-center justify-center py-5 ">
-              <Wand2 size={22} color="#ffffff" />
-              <Text className="font-semibold text-white text-lg ml-2.5">
-                Gerar revisão
-              </Text>
+              {isGenerating ? (
+                <>
+                  <ActivityIndicator color="#ffffff" />
+                  <Text className="font-semibold text-white text-lg ml-2.5">
+                    Gerando...
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <Wand2 size={22} color="#ffffff" />
+                  <Text className="font-semibold text-white text-lg ml-2.5">
+                    Gerar revisão
+                  </Text>
+                </>
+              )}
             </View>
           </LinearGradient>
         </TouchableOpacity>

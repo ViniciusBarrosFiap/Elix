@@ -1,6 +1,7 @@
 import { BlurView } from 'expo-blur'
 import { useState } from 'react'
 import {
+  Alert,
   View,
   Text,
   TouchableOpacity,
@@ -103,12 +104,16 @@ export default function OnboardingScreen() {
     const [semester, setSemester] = useState('')
     const router = useRouter();
 
-    function handleNext() {
-      UserService.updateUser({
-        curso: course,
-        semestre: Number(semester)
-      });
-      router.replace("/addSubjects")
+    async function handleNext() {
+      try {
+        await UserService.updateUser({
+          curso: course,
+          semestre: Number(semester)
+        });
+        router.replace("/addSubjects")
+      } catch {
+        Alert.alert("Erro", "Não foi possível salvar seus dados. Tente novamente.");
+      }
     }
 
     return (

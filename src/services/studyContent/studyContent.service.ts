@@ -10,5 +10,16 @@ export const StudyContentService = {
     useStudyContentStore
       .getState()
       .setData(data);
+
+    return data;
+  },
+
+  /**
+   * Busca sempre fresca (não usa o store) — o dropdown de disciplina em
+   * addContent.tsx precisa da lista atual mesmo logo após o onboarding,
+   * antes de qualquer refresh do studyContentStore global.
+   */
+  async listMacroTemas() {
+    return StudyContentRepository.listMacroTemas();
   },
 };

@@ -1,9 +1,12 @@
-import userDataMock from "@/src/mocks/userData.json";
-
+import { apiFetch } from "@/src/lib/apiClient";
 import { UserData } from "@/src/types/userData";
 
 export const UserRepository = {
   async getUser(): Promise<UserData> {
-    return userDataMock as UserData;
+    return apiFetch<UserData>("/api/users/identify", { method: "POST", body: {} });
+  },
+
+  async updateUser(updates: Partial<UserData>): Promise<UserData> {
+    return apiFetch<UserData>("/api/users/me", { method: "PATCH", body: updates });
   },
 };
