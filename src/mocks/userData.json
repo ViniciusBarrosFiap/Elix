@@ -1,0 +1,10 @@
+{
+  "user_id": "user_001",
+  "nome": "usuário",
+  "primeiroAcesso": true,
+  "curso": "",
+  "semestre": 0,
+  "fezUpload": false,
+  "pontuacao": 0,
+  "streak": 0
+}

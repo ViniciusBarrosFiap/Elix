@@ -1,0 +1,40 @@
+{
+    "questoes": [
+        {
+            "categoria": "Neurociência Aplicada",
+            "titulo": "Qual região do cérebro é a principal responsável pela consolidação da memória?",
+            "dica": "Considere o processo de transferência da memória de curto prazo para os sistemas de armazenamento de longo prazo.",
+            "opcoes": [
+            { "id": "a", "rotulo": "Córtex Pré-frontal" },
+            { "id": "b", "rotulo": "Hipocampo" },
+            { "id": "c", "rotulo": "Cerebelo" },
+            { "id": "d", "rotulo": "Amígdala" }
+            ],
+            "id_gabarito": "b"
+        },
+        {
+            "categoria": "Neurociência Aplicada",
+            "titulo": "Qual neurotransmissor está centralmente envolvido no sistema de recompensa e na motivação?",
+            "dica": "Sua liberação gera a sensação de antecipação de um benefício ou prazer.",
+            "opcoes": [
+            { "id": "a", "rotulo": "Serotonina" },
+            { "id": "b", "rotulo": "GABA" },
+            { "id": "c", "rotulo": "Dopamina" },
+            { "id": "d", "rotulo": "Acetilcolina" }
+            ],
+            "id_gabarito": "c"
+        },
+        {
+            "categoria": "Neurociência Aplicada",
+            "titulo": "A capacidade do cérebro de se reorganizar e formar novas conexões ao longo da vida é chamada de:",
+            "dica": "Pense na maleabilidade do tecido nervoso frente a novos aprendizados ou lesões.",
+            "opcoes": [
+            { "id": "a", "rotulo": "Neuroplasticidade" },
+            { "id": "b", "rotulo": "Mielinização" },
+            { "id": "c", "rotulo": "Homeostase sináptica" },
+            { "id": "d", "rotulo": "Potenciação de Curto Prazo" }
+            ],
+            "id_gabarito": "a"
+        }
+    ]
+}

@@ -1,0 +1,31 @@
+{
+  "user": {
+    "id": "user_001",
+    "nome": "Lucas"
+  },
+  "macrotemas": [
+    {
+      "id": "macro_001",
+      "nome": "Endocrinologia",
+      "status": "Em reforço",
+      "liquido_percentual": 58
+    },
+    {
+      "id": "macro_002",
+      "nome": "Neurociência",
+      "status": "Consolidando",
+      "liquido_percentual": 72
+    },
+    {
+      "id": "macro_003",
+      "nome": "Anatomia muscular",
+      "status": "Começando",
+      "liquido_percentual": 24
+    }
+  ],
+  "dose_hoje": {
+    "status": "pronta",
+    "total_perguntas": 5,
+    "perguntas_concluidas": 0
+  }
+}

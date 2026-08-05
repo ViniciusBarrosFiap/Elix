@@ -1,0 +1,387 @@
+{
+    "macrotemas": [
+    {
+      "id": "macro_tema_001",
+      "nome": "Endocrinologia",
+      "emoji": "💉",
+      "status": "em_reforco",
+      "subtemas_ativos": 3,
+      "subtemas": [
+        {
+          "id": "sub_tema_001",
+          "nome": "Eixo HPT",
+          "status": "em_reforco",
+          "conceitos": [
+            {
+              "id": "conceito_001",
+              "nome": "Feedback negativo",
+              "peso_atual": 8,
+              "status": "em_reforco",
+              "perguntas": [
+                {
+                  "id": "q_001",
+                  "tipo_cognitivo": "causa_consequencia",
+                  "pergunta": "O que tende a acontecer com TRH e TSH quando T3/T4 estão elevados?",
+                  "alternativas": {
+                    "A": "Ambos aumentam",
+                    "B": "Ambos diminuem",
+                    "C": "Apenas TRH aumenta",
+                    "D": "Apenas TSH aumenta"
+                  },
+                  "resposta": "B",
+                  "explicacao": "T3/T4 elevados reduzem TRH e TSH por feedback negativo.",
+                  "dificuldade": 2,
+                  "peso_atual": 8,
+                  "proxima_revisao": "2026-05-28",
+                  "review_stage": 2,
+                  "performance": {
+                    "vezes_revisada": 1,
+                    "acertos": 1,
+                    "erros": 0
+                  }
+                },
+                {
+                  "id": "q_002",
+                  "tipo_cognitivo": "aplicacao_contextual",
+                  "pergunta": "Se T3/T4 estão baixos, qual alteração em TSH seria esperada?",
+                  "alternativas": {
+                    "A": "Redução de TSH",
+                    "B": "Aumento de TSH",
+                    "C": "Ausência de TSH",
+                    "D": "TSH não se altera"
+                  },
+                  "resposta": "B",
+                  "explicacao": "Com T3/T4 baixos, há menor feedback negativo, favorecendo aumento de TSH.",
+                  "dificuldade": 2,
+                  "peso_atual": 9,
+                  "proxima_revisao": "2026-05-27",
+                  "review_stage": 2,
+                  "performance": {
+                    "vezes_revisada": 1,
+                    "acertos": 0,
+                    "erros": 1
+                  }
+                }
+              ]
+            },
+            {
+              "id": "conceito_002",
+              "nome": "TRH",
+              "peso_atual": 6,
+              "status": "consolidando",
+              "perguntas": [
+                {
+                  "id": "q_003",
+                  "tipo_cognitivo": "lembranca_direta",
+                  "pergunta": "O TRH estimula diretamente a secreção de qual hormônio?",
+                  "alternativas": {
+                    "A": "ACTH",
+                    "B": "TSH",
+                    "C": "GH",
+                    "D": "Prolactina"
+                  },
+                  "resposta": "B",
+                  "explicacao": "O TRH estimula a adeno-hipófise a liberar TSH.",
+                  "dificuldade": 1,
+                  "peso_atual": 6,
+                  "proxima_revisao": "2026-06-01",
+                  "review_stage": 3,
+                  "performance": {
+                    "vezes_revisada": 2,
+                    "acertos": 2,
+                    "erros": 0
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "sub_tema_002",
+          "nome": "Síntese hormonal tireoidiana",
+          "status": "comecando",
+          "conceitos": [
+            {
+              "id": "conceito_003",
+              "nome": "TPO",
+              "peso_atual": 10,
+              "status": "comecando",
+              "perguntas": [
+                {
+                  "id": "q_004",
+                  "tipo_cognitivo": "lembranca_direta",
+                  "pergunta": "A TPO atua principalmente em qual etapa da síntese hormonal tireoidiana?",
+                  "alternativas": {
+                    "A": "Captação de iodeto",
+                    "B": "Oxidação e organificação do iodeto",
+                    "C": "Conversão periférica de T4 em T3",
+                    "D": "Liberação de TSH"
+                  },
+                  "resposta": "B",
+                  "explicacao": "A TPO participa da oxidação e organificação do iodeto na tireoglobulina.",
+                  "dificuldade": 1,
+                  "peso_atual": 10,
+                  "proxima_revisao": "2026-05-28",
+                  "review_stage": 1,
+                  "performance": {
+                    "vezes_revisada": 0,
+                    "acertos": 0,
+                    "erros": 0
+                  }
+                },
+                {
+                  "id": "q_005",
+                  "tipo_cognitivo": "causa_consequencia",
+                  "pergunta": "Se a TPO for inibida, qual processo será diretamente prejudicado?",
+                  "alternativas": {
+                    "A": "Organificação do iodeto",
+                    "B": "Produção de TRH",
+                    "C": "Liberação de ADH",
+                    "D": "Conversão de T4 em T3 no fígado"
+                  },
+                  "resposta": "A",
+                  "explicacao": "A TPO é essencial para organificar o iodeto na tireoglobulina.",
+                  "dificuldade": 2,
+                  "peso_atual": 9,
+                  "proxima_revisao": "2026-05-29",
+                  "review_stage": 1,
+                  "performance": {
+                    "vezes_revisada": 0,
+                    "acertos": 0,
+                    "erros": 0
+                  }
+                }
+              ]
+            },
+            {
+              "id": "conceito_004",
+              "nome": "MIT e DIT",
+              "peso_atual": 7,
+              "status": "em_reforco",
+              "perguntas": [
+                {
+                  "id": "q_006",
+                  "tipo_cognitivo": "relacao_entre_conceitos",
+                  "pergunta": "Qual combinação forma T4 durante a síntese hormonal tireoidiana?",
+                  "alternativas": {
+                    "A": "MIT + MIT",
+                    "B": "MIT + DIT",
+                    "C": "DIT + DIT",
+                    "D": "T3 + MIT"
+                  },
+                  "resposta": "C",
+                  "explicacao": "A união de DIT + DIT forma T4.",
+                  "dificuldade": 2,
+                  "peso_atual": 7,
+                  "proxima_revisao": "2026-05-28",
+                  "review_stage": 2,
+                  "performance": {
+                    "vezes_revisada": 1,
+                    "acertos": 1,
+                    "erros": 0
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "macro_tema_002",
+      "nome": "Neurociência",
+      "emoji": "🧠",
+      "status": "consolidando",
+      "subtemas_ativos": 2,
+      "subtemas": [
+        {
+          "id": "sub_tema_003",
+          "nome": "Hipotálamo",
+          "status": "consolidando",
+          "conceitos": [
+            {
+              "id": "conceito_005",
+              "nome": "Núcleo supraquiasmático",
+              "peso_atual": 6,
+              "status": "consolidando",
+              "perguntas": [
+                {
+                  "id": "q_007",
+                  "tipo_cognitivo": "lembranca_direta",
+                  "pergunta": "O núcleo supraquiasmático está principalmente relacionado a qual função?",
+                  "alternativas": {
+                    "A": "Controle do equilíbrio",
+                    "B": "Ritmo circadiano",
+                    "C": "Produção de TSH",
+                    "D": "Controle motor fino"
+                  },
+                  "resposta": "B",
+                  "explicacao": "O núcleo supraquiasmático participa da regulação do ritmo circadiano.",
+                  "dificuldade": 1,
+                  "peso_atual": 6,
+                  "proxima_revisao": "2026-06-02",
+                  "review_stage": 3,
+                  "performance": {
+                    "vezes_revisada": 2,
+                    "acertos": 2,
+                    "erros": 0
+                  }
+                }
+              ]
+            },
+            {
+              "id": "conceito_006",
+              "nome": "Fome e saciedade",
+              "peso_atual": 8,
+              "status": "em_reforco",
+              "perguntas": [
+                {
+                  "id": "q_008",
+                  "tipo_cognitivo": "comparacao",
+                  "pergunta": "Qual alternativa relaciona corretamente AgRP e POMC?",
+                  "alternativas": {
+                    "A": "AgRP promove saciedade e POMC promove fome",
+                    "B": "AgRP promove fome e POMC promove saciedade",
+                    "C": "Ambos promovem fome",
+                    "D": "Ambos inibem o hipotálamo"
+                  },
+                  "resposta": "B",
+                  "explicacao": "AgRP está associado à fome, enquanto POMC está associado à saciedade.",
+                  "dificuldade": 2,
+                  "peso_atual": 8,
+                  "proxima_revisao": "2026-05-28",
+                  "review_stage": 2,
+                  "performance": {
+                    "vezes_revisada": 1,
+                    "acertos": 0,
+                    "erros": 1
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "sub_tema_004",
+          "nome": "Formação reticular",
+          "status": "em_reforco",
+          "conceitos": [
+            {
+              "id": "conceito_007",
+              "nome": "SARA",
+              "peso_atual": 8,
+              "status": "em_reforco",
+              "perguntas": [
+                {
+                  "id": "q_009",
+                  "tipo_cognitivo": "lembranca_direta",
+                  "pergunta": "O Sistema Ativador Reticular Ascendente está principalmente relacionado a qual função?",
+                  "alternativas": {
+                    "A": "Coordenação cerebelar",
+                    "B": "Manutenção do estado de alerta",
+                    "C": "Produção hormonal",
+                    "D": "Contração muscular"
+                  },
+                  "resposta": "B",
+                  "explicacao": "O SARA participa da manutenção do estado de alerta e consciência.",
+                  "dificuldade": 1,
+                  "peso_atual": 8,
+                  "proxima_revisao": "2026-05-28",
+                  "review_stage": 2,
+                  "performance": {
+                    "vezes_revisada": 1,
+                    "acertos": 1,
+                    "erros": 0
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "macro_tema_003",
+      "nome": "Anatomia musculoesquelética",
+      "emoji": "🦴",
+      "status": "comecando",
+      "subtemas_ativos": 2,
+      "subtemas": [
+        {
+          "id": "sub_tema_005",
+          "nome": "Ombro",
+          "status": "em_reforco",
+          "conceitos": [
+            {
+              "id": "conceito_008",
+              "nome": "Manguito rotador",
+              "peso_atual": 9,
+              "status": "em_reforco",
+              "perguntas": [
+                {
+                  "id": "q_010",
+                  "tipo_cognitivo": "lembranca_direta",
+                  "pergunta": "Quais músculos formam o manguito rotador?",
+                  "alternativas": {
+                    "A": "Supraespinal, infraespinal, redondo menor e subescapular",
+                    "B": "Deltoide, bíceps, tríceps e supraespinal",
+                    "C": "Trapézio, romboide, deltoide e peitoral maior",
+                    "D": "Peitoral maior, latíssimo do dorso e redondo maior"
+                  },
+                  "resposta": "A",
+                  "explicacao": "O manguito rotador é formado por supraespinal, infraespinal, redondo menor e subescapular.",
+                  "dificuldade": 2,
+                  "peso_atual": 9,
+                  "proxima_revisao": "2026-05-28",
+                  "review_stage": 1,
+                  "performance": {
+                    "vezes_revisada": 0,
+                    "acertos": 0,
+                    "erros": 0
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "sub_tema_006",
+          "nome": "Joelho",
+          "status": "comecando",
+          "conceitos": [
+            {
+              "id": "conceito_009",
+              "nome": "Ligamento cruzado anterior",
+              "peso_atual": 8,
+              "status": "comecando",
+              "perguntas": [
+                {
+                  "id": "q_011",
+                  "tipo_cognitivo": "aplicacao_contextual",
+                  "pergunta": "O ligamento cruzado anterior impede principalmente qual movimento?",
+                  "alternativas": {
+                    "A": "Translação anterior da tíbia",
+                    "B": "Translação posterior da tíbia",
+                    "C": "Adução do joelho",
+                    "D": "Flexão plantar"
+                  },
+                  "resposta": "A",
+                  "explicacao": "O LCA limita principalmente a translação anterior da tíbia em relação ao fêmur.",
+                  "dificuldade": 2,
+                  "peso_atual": 8,
+                  "proxima_revisao": "2026-05-30",
+                  "review_stage": 1,
+                  "performance": {
+                    "vezes_revisada": 0,
+                    "acertos": 0,
+                    "erros": 0
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
