@@ -33,6 +33,57 @@ Quiz de hoje (quiz/index.tsx)
 Tudo síncrono: o app manda o arquivo e espera uma única resposta já com o
 conteúdo gerado (sem endpoint de status/polling nesta fase).
 
+### Fluxo detalhado do backend (upload → geração)
+
+O trecho mais complexo é o pipeline síncrono disparado por `POST /api/materials`
+(implementado em `server/src/services/materials.service.ts` +
+`server/src/services/ingestion/*`). O diagrama abaixo mostra exatamente esse
+caminho, incluindo o retry único de validação e os dois desfechos possíveis:
+
+```mermaid
+sequenceDiagram
+    actor U as Usuário
+    participant App as App (Expo)
+    participant API as Backend (Express)
+    participant DB as Supabase (Postgres + Storage)
+    participant AI as Gemini
+
+    U->>App: Escolhe disciplina + arquivo, toca "Gerar revisão"
+    App->>API: POST /api/materials (file, macro_tema_id, tags)
+
+    API->>DB: valida se macro_tema_id pertence ao usuário
+    DB-->>API: ok (ou 404 se não pertencer)
+
+    API->>DB: insert materials (status = "processando")
+    API->>DB: upload best-effort do arquivo original (Storage)
+    Note over API,DB: se o Storage falhar, o pipeline segue mesmo assim
+
+    API->>API: extrai texto (pdf-parse / mammoth) e trunca (MAX_INPUT_CHARS)
+    API->>AI: gera subtemas → conceitos → perguntas (JSON estruturado)
+    AI-->>API: JSON
+
+    API->>API: valida a resposta com zod
+
+    alt JSON inválido na 1ª tentativa
+        API->>AI: reenvia o prompt com o erro de validação (1 retry)
+        AI-->>API: novo JSON
+        API->>API: valida novamente
+    end
+
+    alt ainda inválido após o retry
+        API->>DB: materials.status = "erro" + erro_mensagem
+        API-->>App: 422 { erro_mensagem }
+        App-->>U: Alert de erro, permanece na tela
+    else conteúdo válido
+        API->>DB: insere sub_temas/conceitos/perguntas (transação atômica)
+        API->>DB: materials.status = "concluido"; users.fez_upload = true
+        DB-->>API: StudyContentData atualizado do usuário
+        API-->>App: 200 { material_id, macrotemas }
+        App->>App: atualiza studyContentStore + userDataStore
+        App-->>U: navega para Home com o macrotema já enriquecido
+    end
+```
+
 ## 2. Onde está cada coisa
 
 | Camada | Local |
