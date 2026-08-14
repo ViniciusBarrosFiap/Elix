@@ -1,12 +1,22 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Animated, Dimensions, Easing } from 'react-native';
+import { View, Text, StyleSheet, Animated, Dimensions, Easing, AppState, AppStateStatus } from 'react-native';
 import { FlaskConical } from 'lucide-react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
+import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Stop } from 'react-native-svg';
 import { useRouter, useLocalSearchParams, RelativePathString } from 'expo-router';
 
-const { height } = Dimensions.get('window');
+/**
+ * Dependência extra usada no fundo líquido:
+ *   npx expo install react-native-svg
+ **/
+
+const { width, height } = Dimensions.get('window');
 const FLASK_SIZE = 108;
 const GLOW_SIZE = FLASK_SIZE * 1.6; // caixa externa que contém o brilho, evita vazar sobre o texto abaixo
+
+// ── mesma física de tempo real usada no LiquidFillCard ──
+const WAVE_SPEED = 0.0015625; // radianos por ms
+const FILL_SPEED = 0.003125;  // fração (0–100) por ms
 
 type LoadingParams = {
   next: string;
@@ -68,10 +78,86 @@ function Bubble({ size, left, delay, duration }: (typeof BUBBLES)[number]) {
   );
 }
 
+// ─────────────────────────────────────────────────────────────
+// FUNDO LÍQUIDO: onda em SVG cobrindo a tela toda (mesmo motor do LiquidFillCard,
+// implementado aqui dentro mesmo, sem arquivo separado). Cores do gradiente
+// mantidas iguais às originais (#8A2BE2 → preto).
+// ─────────────────────────────────────────────────────────────
+function buildWavePath(W: number, H: number, fillPct: number, t: number, amp: number): string {
+  const SEG = 28;
+  const surfaceY = H - (fillPct / 100) * H;
+
+  let d = `M0,${(surfaceY + amp * Math.sin(t)).toFixed(1)}`;
+  for (let i = 0; i <= SEG; i++) {
+    const x = (i / SEG) * W;
+    const y = surfaceY + amp * Math.sin((i / SEG) * Math.PI * 2 + t);
+    d += `L${x.toFixed(1)},${y.toFixed(1)}`;
+  }
+  d += `L${W},${H}L0,${H}Z`;
+  return d;
+}
+
+function LiquidWaveBackground({ progressRef }: { progressRef: React.MutableRefObject<number> }) {
+  const pathRef = useRef<any>(null);
+  const fillRef = useRef(0);
+  const tRef = useRef(0);
+  const rafRef = useRef<number | null>(null);
+  const lastMsRef = useRef<number | null>(null);
+  const activeRef = useRef(true);
+
+  useEffect(() => {
+    const onAppStateChange = (state: AppStateStatus) => {
+      if (state === 'active') {
+        activeRef.current = true;
+        lastMsRef.current = null; // reseta o delta pra evitar salto ao voltar do background
+      } else {
+        activeRef.current = false;
+      }
+    };
+    const sub = AppState.addEventListener('change', onAppStateChange);
+
+    function loop(timestamp: number) {
+      const delta = lastMsRef.current !== null ? Math.min(timestamp - lastMsRef.current, 64) : 16;
+      lastMsRef.current = timestamp;
+
+      if (activeRef.current) {
+        tRef.current += WAVE_SPEED * delta;
+        fillRef.current += (progressRef.current - fillRef.current) * FILL_SPEED * delta;
+
+        if (pathRef.current) {
+          pathRef.current.setNativeProps({
+            d: buildWavePath(width, height, fillRef.current, tRef.current, 12),
+          });
+        }
+      }
+      rafRef.current = requestAnimationFrame(loop);
+    }
+
+    rafRef.current = requestAnimationFrame(loop);
+    return () => {
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+      sub.remove();
+    };
+  }, []);
+
+  return (
+    <Svg width={width} height={height} style={StyleSheet.absoluteFill}>
+      <Defs>
+        {/* mesmas cores do fundo original, só que agora com onda em vez de retângulo deslizando */}
+        <SvgLinearGradient id="loadingLiquidBg" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor="#8A2BE2" stopOpacity="1" />
+          <Stop offset="1" stopColor="#000000" stopOpacity="1" />
+        </SvgLinearGradient>
+      </Defs>
+      <Path ref={pathRef} fill="url(#loadingLiquidBg)" />
+    </Svg>
+  );
+}
+
 export default function LoadingScreen({ next, title, subtitle }: Props) {
   const fillAnimation = useRef(new Animated.Value(0)).current;
   const liquidHeight = useRef(new Animated.Value(0)).current; // espelha fillAnimation, sem native driver (anima "height")
-  const glowPulse = useRef(new Animated.Value(0)).current;
+  const bgProgressRef = useRef(0); // 0–100, lido pelo loop de onda do fundo (fora do React)
   const enterAnim = useRef(new Animated.Value(0)).current;
 
   const router = useRouter();
@@ -93,30 +179,12 @@ export default function LoadingScreen({ next, title, subtitle }: Props) {
       useNativeDriver: true,
     }).start();
 
-    // Brilho ambiente pulsando atrás do frasco
-    const glowLoop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(glowPulse, {
-          toValue: 1,
-          duration: 1600,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(glowPulse, {
-          toValue: 0,
-          duration: 1600,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    glowLoop.start();
-
-    if (!shouldNavigate) return () => glowLoop.stop();
+    if (!shouldNavigate) return;
 
     const listenerId = fillAnimation.addListener(({ value }) => {
       setPercentage(`${Math.round(value * 100)}%`);
       liquidHeight.setValue(value);
+      bgProgressRef.current = value * 100;
     });
 
     Animated.timing(fillAnimation, {
@@ -141,18 +209,9 @@ export default function LoadingScreen({ next, title, subtitle }: Props) {
 
     return () => {
       clearTimeout(timer);
-      glowLoop.stop();
       fillAnimation.removeListener(listenerId);
     };
   }, [shouldNavigate]);
-
-  const bgTranslateY = fillAnimation.interpolate({
-    inputRange: [0, 1],
-    outputRange: [height / 2, 0],
-  });
-
-  const glowOpacity = glowPulse.interpolate({ inputRange: [0, 1], outputRange: [0.25, 0.55] });
-  const glowScale = glowPulse.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1.1] });
 
   const liquidFillHeight = liquidHeight.interpolate({
     inputRange: [0, 1],
@@ -166,15 +225,8 @@ export default function LoadingScreen({ next, title, subtitle }: Props) {
     <View className="flex-1 bg-[#16111b]">
       <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#16111b' }]} />
 
-      {/* Gradiente vibrante que sobe conforme o progresso */}
-      <Animated.View style={[StyleSheet.absoluteFillObject, { transform: [{ translateY: bgTranslateY }] }]}>
-        <LinearGradient
-          colors={['#8A2BE2', 'black']}
-          style={StyleSheet.absoluteFillObject}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 1 }}
-        />
-      </Animated.View>
+      {/* Fundo líquido: onda em SVG subindo com o progresso, mesmas cores de antes */}
+      <LiquidWaveBackground progressRef={bgProgressRef} />
 
       <Animated.View
         className="absolute inset-0 z-10 items-center justify-center"
@@ -191,16 +243,18 @@ export default function LoadingScreen({ next, title, subtitle }: Props) {
             justifyContent: 'center',
           }}
         >
-          {/* brilho pulsante atrás, agora contido na própria caixa externa */}
-          <Animated.View
+          {/* blur atrás do frasco, deixando a onda do fundo levemente desfocada nessa área */}
+          <BlurView
+            intensity={35}
+            tint="dark"
             style={{
               position: 'absolute',
               width: GLOW_SIZE,
               height: GLOW_SIZE,
               borderRadius: 999,
-              backgroundColor: '#a855f7',
-              opacity: glowOpacity,
-            
+              overflow: 'hidden',
+              borderWidth: 1,
+              borderColor: 'rgba(196,148,255,0.25)',
             }}
           />
 
@@ -248,8 +302,8 @@ export default function LoadingScreen({ next, title, subtitle }: Props) {
           >
             {percentage}
           </Text> */}
-
-          {/* <Text
+{/* 
+          <Text
             className="font-bold text-[#eed9ff]"
             style={{
               fontFamily: 'Manrope',
