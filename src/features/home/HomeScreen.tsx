@@ -134,23 +134,39 @@ export default function HomeScreen() {
   )
   :
   (
-    <View className="flex-1 bg-[#080510]">
-      <Animated.View
-        style={{
-          flex: 1,
-          opacity: fadeAnim,
-          transform: [{ translateY: slideAnim }],
-        }}
-      >
-        <Header />
-        <View className="flex-1 justify-center items-center px-8">
-          <Text className="text-lg font-semibold text-center text-[#d3a0fc]" style={{ marginTop: "-50%" }}>
-            Faça o upload dos seus materiais de estudo e comece a sua jornada de revisão personalizada!
-          </Text>
-          <View className="h-[100]"/>
+
+  <View className="flex-1 bg-[#080510]">
+    <Animated.View
+      style={{
+        flex: 1,
+        opacity: fadeAnim,
+        transform: [{ translateY: slideAnim }],
+      }}
+    >
+      <Header />
+
+      {/* flex-1 + justify-center + items-center = centraliza tudo dentro do espaço disponível */}
+      <View className="flex-1 justify-center items-center px-8">
+     
+
+        <View className="w-20 h-20 rounded-full bg-[#1a1230] border border-[#a855f7]/30 justify-center items-center mb-6">
+          <Text className="text-3xl">📚</Text>
         </View>
-      </Animated.View>
-      <UploadButton onPress={handlePresentModalPress} />
+
+        <Text className="text-2xl font-bold text-center text-white mb-3">
+          Comece sua jornada
+        </Text>
+
+        <Text
+          className="text-base text-center text-[#d3a0fc]/90 leading-6"
+          style={{ maxWidth: 280 }}
+        >
+          Faça o upload dos seus materiais de estudo e receba uma revisão personalizada.
+        </Text>
+      </View>
+    </Animated.View>
+
+    <UploadButton onPress={handlePresentModalPress} />
       {/* O BOTTOM SHEET EM SI */}
 <BottomSheetModal
         ref={bottomSheetModalRef}
