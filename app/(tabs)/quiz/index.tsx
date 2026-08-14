@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import '@/global.css'
 import {
     ScrollView,
@@ -9,6 +9,7 @@ import {
     TouchableOpacity,
     View,
     useWindowDimensions,
+    Animated 
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { QuizQuestionsService } from '@/src/services/quiz/quiz.service';
@@ -31,30 +32,38 @@ const C = {
   correct:                '#00c896',
 };
 
-
 export default function QuizScreen() {
-  // ─── Mock data (este código está comentado porque agora os dados vêm do store e ele causa loop infinito de renderização)
   useEffect(() => {
     console.log("INITIALIZE");
     QuizQuestionsService.initialize();
   }, []);
   
-  const quizData =
-  useQuizQuestionsStore(
-    (state) => state.data
-  );
+  const quizData = useQuizQuestionsStore((state) => state.data);
 
-  const quizQuestions =
-    quizData?.questoes ?? [];
-  
+  const quizQuestions = quizData?.questoes ?? [];
   const amountOfQuestions = quizQuestions.length;
 
   const { width } = useWindowDimensions();
-  const router = useRouter()
+  const router = useRouter();
 
   const [selected, setSelected] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+
+  // ─── Animação do Líquido ───
+  const liquidAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (confirmed) {
+      Animated.timing(liquidAnim, {
+        toValue: 1,
+        duration: 500, // Velocidade do preenchimento
+        useNativeDriver: false, 
+      }).start();
+    } else {
+      liquidAnim.setValue(0); 
+    }
+  }, [confirmed, liquidAnim]);
 
   const currentQuestion = quizQuestions[currentQuestionIndex];
   const isLastQuestion = currentQuestionIndex === quizQuestions.length - 1;
@@ -83,8 +92,7 @@ export default function QuizScreen() {
     }
 
     if (isLastQuestion) {
-      router.replace('/(tabs)/home');
-      return;
+      router.push('/(tabs)/quiz/result');
     }
 
     goToQuestion(currentQuestionIndex + 1);
@@ -99,15 +107,15 @@ export default function QuizScreen() {
   }
 
   function getOptionStyle(id: string) {
-    if (!confirmed) return styles.optionDefault; // ← era !selected
+    if (!confirmed) return styles.optionDefault;
     if (id === currentQuestion.id_gabarito) return styles.optionCorrect;
     if (id === selected && selected !== currentQuestion.id_gabarito) return styles.optionWrong;
     return styles.optionDefault;
   }
 
   function getOptionTextStyle(id: string) {
-    if (!confirmed) return styles.optionText; // ← era !selected
-    if (id === currentQuestion.id_gabarito) return [styles.optionText, { color: C.correct, fontFamily: 'Manrope_700Bold' }];
+    if (!confirmed) return styles.optionText;
+    if (id === currentQuestion.id_gabarito) return [styles.optionText, { color: C.onPrimaryContainer, fontFamily: 'Manrope_700Bold' }];
     if (id === selected && selected !== currentQuestion.id_gabarito) return [styles.optionText, { color: '#ff6b6b' }];
     return styles.optionText;
   }
@@ -126,7 +134,6 @@ export default function QuizScreen() {
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
 
       <View className="flex-row items-center px-6 pt-4 pb-3 gap-3">
-        {/* ── Progress Bar ── */}
         <View
           className="flex-1 rounded-full overflow-hidden"
           style={{ height: 10, backgroundColor: C.surfaceContainerHigh }}
@@ -139,7 +146,6 @@ export default function QuizScreen() {
             }}
           />
         </View>
-        {/* Contador */}
         <Text
           style={{
             fontFamily: 'Manrope_600SemiBold',
@@ -150,7 +156,6 @@ export default function QuizScreen() {
         >
           {currentQuestionIndex + 1}/{quizQuestions.length}
         </Text>
-        {/* ── Exit Button ── */}
         <TouchableOpacity
             onPress={() => router.replace('/(tabs)/home')}
             activeOpacity={0.7}
@@ -167,94 +172,108 @@ export default function QuizScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* O segredo está aqui: o ScrollView ganha uma View servindo de container ao redor */}
       <View style={{ flex: 1 }}>
         <ScrollView
           contentContainerStyle={styles.scroll}
           showsVerticalScrollIndicator={false}
         >
-          {/* ── Category chip ── */}
           <View style={styles.chip}>
             <Text style={styles.chipText}>{currentQuestion.categoria.toUpperCase()}</Text>
           </View>
 
-          {/* ── Question ── */}
           <Text style={styles.question}>{currentQuestion.titulo}</Text>
-
-          {/* ── Hint ── */}
           <Text style={styles.hint}>{currentQuestion.dica}</Text>
 
-          {/* ── Options ── */}
           <View style={styles.optionsList}>
-            {currentQuestion.opcoes.map((opt) => (
+            {currentQuestion.opcoes.map((opt) => {
+              const isCorrectOpt = opt.id === currentQuestion.id_gabarito;
+
+              return (
               <TouchableOpacity
                 key={opt.id}
                 onPress={() => handleSelect(opt.id)}
                 activeOpacity={0.75}
-                style={[styles.option, getOptionStyle(opt.id)]}
+                style={[styles.optionContainer, getOptionStyle(opt.id)]} 
               >
-                <Text style={getOptionTextStyle(opt.id)}>{opt.rotulo}</Text>
+                {/* ── Efeito de Líquido Roxo (Agora com 100% exatos) ── */}
+                {confirmed && isCorrectOpt && (
+                  <Animated.View
+                    style={{
+                      position: 'absolute',
+                      left: 0, 
+                      top: 0,
+                      bottom: 0,
+                      backgroundColor: C.primaryContainer,
+                      width: liquidAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: ['0%', '100%'] // Sem padding atrapalhando, vai até o final
+                      })
+                    }}
+                  />
+                )}
 
-                {/* Ícone de estado */}
-            {!confirmed && (
-    <View style={styles.radioOuter}>
-      {selected === opt.id && (
-        <View style={styles.radioInner} />
-      )}
-    </View>
-  )}
-  {confirmed && opt.id === currentQuestion.id_gabarito && (
-    <View style={[styles.radioOuter, { borderColor: C.correct, backgroundColor: C.correct }]}>
-      <Feather name="check" size={12} color="#fff" />
-    </View>
-  )}
-  {confirmed && opt.id === selected && selected !== currentQuestion.id_gabarito && (
-    <View style={[styles.radioOuter, { borderColor: '#ff6b6b', backgroundColor: '#ff6b6b' }]}>
-      <Feather name="x" size={12} color="#fff" />
-    </View>
-  )}
-  {confirmed && opt.id !== currentQuestion.id_gabarito && opt.id !== selected && (
-    <View style={styles.radioOuter} />
-  )}
-          </TouchableOpacity>
-        ))}
+                {/* ── Conteúdo da Alternativa (Textos e Ícones) ── */}
+                {/* Isolamos o padding aqui para não limitar a animação */}
+                <View style={styles.optionContent}>
+                  <Text style={getOptionTextStyle(opt.id)}>{opt.rotulo}</Text>
+
+                  {!confirmed && (
+                    <View style={styles.radioOuter}>
+                      {selected === opt.id && <View style={styles.radioInner} />}
+                    </View>
+                  )}
+                  {confirmed && isCorrectOpt && (
+                    <View style={[styles.radioOuter, { borderColor: C.correct, backgroundColor: C.correct }]}>
+                      <Feather name="check" size={12} color="#fff" />
+                    </View>
+                  )}
+                  {confirmed && opt.id === selected && !isCorrectOpt && (
+                    <View style={[styles.radioOuter, { borderColor: '#ff6b6b', backgroundColor: '#ff6b6b' }]}>
+                      <Feather name="x" size={12} color="#fff" />
+                    </View>
+                  )}
+                  {confirmed && !isCorrectOpt && opt.id !== selected && (
+                    <View style={styles.radioOuter} />
+                  )}
+                </View>
+              </TouchableOpacity>
+            )})}
+          </View>
+        </ScrollView>
       </View>
-    </ScrollView>
-  </View>
 
-  {/* ── Footer button (Fica fora da área de scroll, fixo embaixo) ── */}
-  <View style={styles.footer}>
-    <TouchableOpacity
-      style={[
-        styles.nextButton,
-        !selected && !confirmed && styles.nextButtonDisabled
-      ]}
-      activeOpacity={0.85}
-      disabled={!selected && !confirmed}
-      onPress={handleNext}
-    >
-      <Text style={styles.nextButtonText}>
-        {!selected && !confirmed
-          ? 'Selecione uma opção'
-          : !confirmed
-            ? 'Confirmar'
-            : isLastQuestion
-              ? 'Finalizar'
-              : 'Próxima →'}
-      </Text>
-    </TouchableOpacity>
-    <TouchableOpacity
-      activeOpacity={0.85}
-      onPress={handleBack}
-      className='m-auto my-2 p-2'
-    >
-      <Text className='text-white text-base text-center'>
-        Voltar
-      </Text>
-    </TouchableOpacity>
-  </View>
+      <View style={styles.footer}>
+        <TouchableOpacity
+          style={[
+            styles.nextButton,
+            !selected && !confirmed && styles.nextButtonDisabled
+          ]}
+          activeOpacity={0.85}
+          disabled={!selected && !confirmed}
+          onPress={handleNext}
+        >
+          <Text style={styles.nextButtonText}>
+            {!selected && !confirmed
+              ? 'Selecione uma opção'
+              : !confirmed
+                ? 'Confirmar'
+                : isLastQuestion
+                  ? 'Finalizar'
+                  : 'Próxima →'}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={handleBack}
+          className='m-auto my-2 p-2'
+        >
+          <Text className='text-white text-base text-center'>
+            Voltar
+          </Text>
+        </TouchableOpacity>
+      </View>
 
-  </SafeAreaView>
+    </SafeAreaView>
   );
 }
 
@@ -263,19 +282,17 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: C.surface,
   },
-
-  // ── Progress ──
   progressBarWrapper: {
     paddingHorizontal: 24,
     paddingTop: 16,
     paddingBottom: 8,
   },
   radioInner: {
-  width: 12,
-  height: 12,
-  borderRadius: 6,
-  backgroundColor: C.primaryContainer,
-},
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: C.primaryContainer,
+  },
   progressTrack: {
     height: 6,
     backgroundColor: C.surfaceContainerHigh,
@@ -287,15 +304,11 @@ const styles = StyleSheet.create({
     backgroundColor: C.primaryContainer,
     borderRadius: 999,
   },
-
-  // ── Scroll ──
   scroll: {
     paddingHorizontal: 24,
     paddingTop: 24,
     paddingBottom: 16,
   },
-
-  // ── Chip ──
   chip: {
     alignSelf: 'flex-start',
     backgroundColor: C.secondaryContainer,
@@ -310,8 +323,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
     color: C.onSecondaryContainer,
   },
-
-  // ── Question ──
   question: {
     fontFamily: 'Manrope_800ExtraBold',
     fontSize: 26,
@@ -320,8 +331,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     letterSpacing: -0.4,
   },
-
-  // ── Hint ──
   hint: {
     fontFamily: 'Manrope_400Regular',
     fontSize: 14,
@@ -329,26 +338,37 @@ const styles = StyleSheet.create({
     color: C.onSurfaceVariant,
     marginBottom: 32,
   },
-
-  // ── Options ──
   optionsList: {
     gap: 10,
   },
-  option: {
+
+  // ── ESTILOS ALTERADOS AQUI ──
+
+  // Contêiner principal da opção sem padding
+  optionContainer: {
+    borderRadius: 16,
+    overflow: 'hidden', // Segura o líquido dentro da borda
+    position: 'relative', 
+  },
+  // O conteúdo de dentro assume os paddings que antes eram do pai
+  optionContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 18,
-    borderRadius: 16,
+    zIndex: 1, // Garante que o texto fique sempre por cima
   },
+
   optionDefault: {
     backgroundColor: C.surfaceContainerHigh,
+    borderWidth: 1.5,
+    borderColor: 'transparent', // Mantido transparente para evitar que o layout dê um "pulo" quando selecionado
   },
   optionCorrect: {
     backgroundColor: C.surfaceContainerHigh,
     borderWidth: 1.5,
-    borderColor: C.correct,
+    borderColor: C.primaryContainer, 
   },
   optionWrong: {
     backgroundColor: C.surfaceContainerHigh,
@@ -371,14 +391,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexShrink: 0,
   },
-
-  // ── Footer ──
- footer: {
-  paddingHorizontal: 24,
-  paddingBottom: 16,
-  paddingTop: 12,
-  backgroundColor: C.surface, // ← adiciona
-},
+  footer: {
+    paddingHorizontal: 24,
+    paddingBottom: 16,
+    paddingTop: 12,
+    backgroundColor: C.surface, 
+  },
   nextButton: {
     height: 58,
     backgroundColor: C.primaryContainer,
