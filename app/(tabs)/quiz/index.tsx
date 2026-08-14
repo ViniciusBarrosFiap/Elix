@@ -9,11 +9,14 @@ import {
     TouchableOpacity,
     View,
     useWindowDimensions,
-    Animated 
+    Animated, 
+    Button,
+    Pressable
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { QuizQuestionsService } from '@/src/services/quiz/quiz.service';
 import { useQuizQuestionsStore } from '@/src/store/quizQuestionsStore';
+import { LinearGradient } from 'expo-linear-gradient';
 
 // ─── Design Tokens 
 const C = {
@@ -122,11 +125,45 @@ export default function QuizScreen() {
 
   if(!currentQuestion) {
     return (
-      <SafeAreaView style={styles.safe} edges={['top', 'bottom']} className='justify-center items-center'>
-        <Text style={{ color: C.onSurfaceVariant, fontFamily: 'Manrope_500Medium' }}>
-          Carregando perguntas...
-        </Text>
-      </SafeAreaView>
+         <SafeAreaView style={styles.safe} edges={['top', 'bottom']} className="flex-1 justify-center items-center px-8">
+      {/* Glow decorativo */}
+      
+
+      {/* Emblema de sucesso */}
+      <View className="w-20 h-20 rounded-full bg-[#1a1230] border border-[#a855f7]/30 justify-center items-center mb-6">
+        <Text className="text-4xl">✅</Text>
+      </View>
+
+      <Text
+        style={{ fontFamily: 'Manrope_700Bold' }}
+        className="text-2xl text-white text-center mb-2"
+      >
+        Revisão diária concluída
+      </Text>
+
+      <Text
+        style={{ color: C.onSurfaceVariant, fontFamily: 'Manrope_500Medium', maxWidth: 280 }}
+        className="text-base text-center leading-6 mb-8"
+      >
+        Você respondeu todas as perguntas de hoje. Volte amanhã para continuar sua jornada de revisão!
+      </Text>
+
+      <Pressable onPress={()=> router.back()} className=" active:opacity-90">
+               <LinearGradient
+                 colors={['#8a2be2', '#5d3587']}
+                 start={{ x: 0, y: 0 }}
+                 end={{ x: 1, y: 0 }}
+                 style={{ borderRadius: 999 }}
+               >
+                 <View className="flex-row items-center justify-center py-4 rounded-full">
+                   
+                   <Text className="font-semibold text-[#ffffff] text-[15px]">
+                     Voltar 
+                   </Text>
+                 </View>
+               </LinearGradient>
+             </Pressable>
+    </SafeAreaView>
     );
   }
 
