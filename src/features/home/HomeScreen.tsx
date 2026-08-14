@@ -154,14 +154,13 @@ export default function HomeScreen() {
         </View>
 
         <Text className="text-2xl font-bold text-center text-white mb-3">
-          Comece sua jornada
+          Vamos começar 
         </Text>
 
         <Text
           className="text-base text-center text-[#d3a0fc]/90 leading-6"
           style={{ maxWidth: 280 }}
-        >
-          Faça o upload dos seus materiais de estudo e receba uma revisão personalizada.
+        >Faça o upload dos seus materiais de estudo
         </Text>
       </View>
     </Animated.View>
