@@ -1,22 +1,4 @@
-/**
- * RevisaoConcluidaScreen.tsx
- *
- * Tela "Revisão concluída" — convertida do protótipo HTML (code.html) seguindo
- * o design system "The Cognitive Sanctuary" (DESIGN.md).
- *
- * Dependências (instale com expo ou yarn/npm):
- *   expo-linear-gradient   -> botão "Finalizar" e halo atrás do ícone central
- *   expo-blur              -> vidro fosco (glassmorphism) dos badges/cards
- *   @expo/vector-icons     -> MaterialCommunityIcons (mapeado a partir dos
- *                             ícones "Material Symbols" usados no HTML)
- *   @expo-google-fonts/manrope  e  @expo-google-fonts/inter
- *     -> Manrope (headline) e Inter (body/label), como no <link> do HTML
- *
- * npx expo install expo-linear-gradient expo-blur @expo/vector-icons
- * npx expo install @expo-google-fonts/manrope @expo-google-fonts/inter expo-font
- */
-
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -25,15 +7,16 @@ import {
   Pressable,
   StatusBar,
   Platform,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import LiquidFillCard from '@/src/features/home/components/LiquidFillCard';
+import { router } from 'expo-router';
 
 // ---------------------------------------------------------------------------
-// Design tokens (extraídos do tailwind.config em code.html)
+// Design tokens (extraídos do tailwind.config)
 // ---------------------------------------------------------------------------
 const colors = {
   primary: '#8A2BE2',
@@ -41,7 +24,6 @@ const colors = {
   primaryContainer: '#2A1B3D',
   onPrimaryContainer: '#E0B1FF',
   secondary: '#B388FF',
-  secondaryContainer20: 'rgba(179,136,255,0.10)',
   background: '#0F0F12',
   onBackground: '#F2F2F7',
   surface: '#1C1C1E',
@@ -49,27 +31,24 @@ const colors = {
   surfaceVariant: '#2C2C2E',
   onSurfaceVariant: '#AEAEB2',
   outline: '#3A3A3C',
-  tertiary: '#00E5FF',
 };
 
 const radius = {
   default: 8,
   lg: 12,
   xl: 18,
-  xxl:50,
+  xxl: 50,
   full: 9999,
 };
 
 // ---------------------------------------------------------------------------
-// Dados de conteúdo (viriam de props / estado real na integração)
+// Dados de conteúdo
 // ---------------------------------------------------------------------------
 type Topic = {
   key: string;
   label: string;
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
 };
-
-
 
 const REVIEWED_TOPICS: Topic[] = [
   { key: 'neuro', label: 'Neurociência', icon: 'brain' },
@@ -85,37 +64,55 @@ type Props = {
   erros?: number;
   elixirMl?: number;
   streakDias?: number;
-  onClose?: () => void;
-  onFinalizar?: () => void;
+ 
 };
 
-export default function result({
+export default function RevisaoConcluidaScreen({
   acertos = 4,
   erros = 1,
   elixirMl = 250,
   streakDias = 14,
-  onClose,
-  onFinalizar,
+
 }: Props) {
+  // ─── Animação de Pulo (Spring) do Ícone ───
+  const scaleAnim = useRef(new Animated.Value(0.3)).current;
+  const opacityAnim = useRef(new Animated.Value(0)).current;
+
+  const onFinalizar = () => {
+
+    router.replace('/(tabs)/home');
+
+  }
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        friction: 5, // Controle do "quique"
+        tension: 60,
+        useNativeDriver: true,
+      }),
+      Animated.timing(opacityAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [scaleAnim, opacityAnim]);
+
+  // ─── Lógica de Textos Dinâmicos ───
+  const total = acertos + erros;
+  const taxaAcerto = total > 0 ? acertos / total : 0;
+  
+  const subtitleText = taxaAcerto >= 0.8
+    ? 'Excelente trabalho! Sua memória está afiada hoje.'
+    : 'Revisão concluída. Continue praticando para dominar esses temas.';
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar barStyle="light-content" backgroundColor={colors.background} />
 
-      {/* Header flutuante */}
-      <View style={styles.header}>
-        <Pressable
-          onPress={onClose}
-          hitSlop={8}
-          style={({ pressed }) => [
-            styles.closeButton,
-            pressed && { backgroundColor: 'rgba(44,44,46,0.4)' },
-          ]}
-        >
-          <MaterialCommunityIcons name="close" size={22} color={colors.onSurfaceVariant} />
-        </Pressable>
-      </View>
-
-      {/* Ícone central com halo (glow) */}
+      {/* Hero: Ícone central com halo (glow) animado */}
       <View style={styles.heroSection}>
         <View style={styles.glowWrap} pointerEvents="none">
           <LinearGradient
@@ -123,31 +120,41 @@ export default function result({
             style={styles.glow}
           />
         </View>
-        <View style={styles.iconCircleOuter}>
+        <Animated.View
+          style={[
+            styles.iconCircleOuter,
+            {
+              transform: [{ scale: scaleAnim }],
+              opacity: opacityAnim,
+            },
+          ]}
+        >
           <BlurView intensity={30} tint="dark" style={styles.iconCircleBlur}>
             <MaterialCommunityIcons name="check-circle" size={92} color={colors.primary} />
           </BlurView>
-        </View>
+        </Animated.View>
       </View>
 
       {/* Painel inferior */}
       <View style={styles.bottomPanel}>
-        {/* Badges de resultado */}
+        {/* Badges de resultado (Plural dinâmico) */}
         <View style={styles.badgesRow}>
           <BlurView intensity={25} tint="dark" style={[styles.badge, styles.badgeSuccess]}>
             <MaterialCommunityIcons name="check-circle" size={16} color={colors.primary} />
-            <Text style={styles.badgeSuccessText}>{acertos} Acertos</Text>
+            <Text style={styles.badgeSuccessText}>
+              {acertos} {acertos === 1 ? 'Acerto' : 'Acertos'}
+            </Text>
           </BlurView>
           <BlurView intensity={25} tint="dark" style={[styles.badge, styles.badgeError]}>
             <MaterialCommunityIcons name="close-circle" size={16} color={colors.secondary} />
-            <Text style={styles.badgeErrorText}>{erros} Erro</Text>
+            <Text style={styles.badgeErrorText}>
+              {erros} {erros === 1 ? 'Erro' : 'Erros'}
+            </Text>
           </BlurView>
         </View>
 
         <Text style={styles.title}>Revisão concluída</Text>
-        <Text style={styles.subtitle}>
-          Sua meta de hoje foi atingida. Você está no caminho certo.
-        </Text>
+        <Text style={styles.subtitle}>{subtitleText}</Text>
 
         {/* Chips de conteúdos revisados */}
         <Text style={styles.sectionLabel}>CONTEÚDOS REVISADOS</Text>
@@ -167,12 +174,8 @@ export default function result({
           ))}
         </ScrollView>
 
-        {/* Cards de estatísticas */}
+        {/* Cards de estatísticas
         <View style={styles.statsRow}>
-
-
-
-       
           <View style={styles.statCard}>
             <View style={[styles.statGlow, { backgroundColor: 'rgba(138,43,226,0.10)' }]} />
             <View style={[styles.statIconWrap, { backgroundColor: 'rgba(138,43,226,0.20)', borderColor: 'rgba(138,43,226,0.20)' }]}>
@@ -190,9 +193,9 @@ export default function result({
             <Text style={styles.statLabel}>STREAK</Text>
             <Text style={styles.statValue}>{streakDias} dias</Text>
           </View>
-        </View>
+        </View> */}
 
-        {/* CTA */}
+        {/* Único CTA (Removido o X superior) */}
         <Pressable onPress={onFinalizar} style={({ pressed }) => [pressed && styles.ctaPressed]}>
           <LinearGradient
             colors={['#8A2BE2', '#6A1B9A']}
@@ -215,22 +218,6 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.background,
-  },
-
-  // Header
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  closeButton: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 
   // Hero
@@ -258,7 +245,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: 'rgba(138,43,226,0.20)',
-    // sombra ambiente tingida de primary, conforme DESIGN.md
     shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.5,
@@ -325,7 +311,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   subtitle: {
-    fontFamily: 'Inter_500Medium',
+    fontFamily: 'Inter_500Medium', // Caso não tenha Inter, substitua por Arial ou a fonte padrão do seu app
     fontSize: 15,
     lineHeight: 22,
     color: colors.onSurfaceVariant,
