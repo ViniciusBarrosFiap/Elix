@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import '@/global.css'
 import {
     ScrollView,
@@ -17,6 +17,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { QuizQuestionsService } from '@/src/services/quiz/quiz.service';
 import { useQuizQuestionsStore } from '@/src/store/quizQuestionsStore';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BottomSheetBackdrop, BottomSheetModal, BottomSheetView } from '@gorhom/bottom-sheet';
+import { BlurView } from 'expo-blur';
 
 // ─── Design Tokens 
 const C = {
@@ -40,6 +42,37 @@ export default function QuizScreen() {
     console.log("INITIALIZE");
     QuizQuestionsService.initialize();
   }, []);
+
+   const bottomSheetModalRef = useRef<BottomSheetModal>(null);
+    // 2. Define as alturas que o Bottom Sheet pode assumir (ex: 25% e 50% da tela)
+    const snapPoints = useMemo(() => ["60%"], ["80%"]);
+
+  const renderBackdrop = useCallback(
+      (props: any) => (
+        <BottomSheetBackdrop
+        {...props}
+        opacity={0.8}
+        disappearsOnIndex={-1} // Fica invisível quando o modal fecha
+        appearsOnIndex={0} // Aparece assim que o modal abre no primeiro snap point
+        pressBehavior="close" // Garante que o toque fechará o modal
+        />
+      ),
+      [],
+    );
+  
+      const renderBackground = useCallback(
+    (props: any) => (
+      <BlurView
+        // O props.style é injetado pela biblioteca para posicionar o fundo
+        style={[props.style, { borderRadius: 24, overflow: 'hidden' }]}
+        tint="default"
+        intensity={95} // Ajuste a força do vidro
+      />
+    ),
+    []
+  );
+
+   
   
   const quizData = useQuizQuestionsStore((state) => state.data);
 
@@ -91,7 +124,15 @@ export default function QuizScreen() {
   function handleNext() {
     if (!confirmed) {
       setConfirmed(true);
+
+      // ─── NOVA LÓGICA AQUI ───
+      // Se a resposta selecionada for diferente do gabarito (resposta errada),
+      // abre o Bottom Sheet automaticamente.
+      if (selected !== currentQuestion.id_gabarito) {
+          bottomSheetModalRef.current?.present();
+      }
       return;
+  
     }
 
     if (isLastQuestion) {
@@ -170,7 +211,24 @@ export default function QuizScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
 
+      
+
       <View className="flex-row items-center px-6 pt-4 pb-3 gap-3">
+
+         <TouchableOpacity
+            onPress={() => router.replace('/(tabs)/home')}
+            activeOpacity={0.7}
+            className="items-center justify-center"
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 18,
+              backgroundColor: C.surfaceContainerHigh,
+              flexShrink: 0,
+            }}
+          >
+            <Feather name="x" size={16} color={C.onSurfaceVariant} />
+        </TouchableOpacity>
         <View
           className="flex-1 rounded-full overflow-hidden"
           style={{ height: 10, backgroundColor: C.surfaceContainerHigh }}
@@ -193,20 +251,7 @@ export default function QuizScreen() {
         >
           {currentQuestionIndex + 1}/{quizQuestions.length}
         </Text>
-        <TouchableOpacity
-            onPress={() => router.replace('/(tabs)/home')}
-            activeOpacity={0.7}
-            className="items-center justify-center"
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 18,
-              backgroundColor: C.surfaceContainerHigh,
-              flexShrink: 0,
-            }}
-          >
-            <Feather name="x" size={16} color={C.onSurfaceVariant} />
-        </TouchableOpacity>
+       
       </View>
 
       <View style={{ flex: 1 }}>
@@ -299,16 +344,57 @@ export default function QuizScreen() {
                   : 'Próxima →'}
           </Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={handleBack}
-          className='m-auto my-2 p-2'
-        >
-          <Text className='text-white text-base text-center'>
-            Voltar
-          </Text>
-        </TouchableOpacity>
+     
       </View>
+
+     <BottomSheetModal
+  ref={bottomSheetModalRef}
+  index={0} // abre no primeiro ponto
+  snapPoints={snapPoints}
+  backgroundComponent={renderBackground}
+  backdropComponent={renderBackdrop}
+  handleIndicatorStyle={{ backgroundColor: '#a855f7', width: 40 }}
+>
+  <BottomSheetView style={{ flex: 1, paddingHorizontal: 24, paddingTop: 8, paddingBottom: 24 }}>
+    {/* Cabeçalho com ícone + título */}
+    <View className="flex-row items-center mb-4">
+      <View className="w-8 h-8 rounded-full bg-[#a855f7]/20 justify-center items-center mr-3">
+        <Text className="text-base">💡</Text>
+      </View>
+      <Text
+        style={{ fontFamily: 'Manrope_700Bold' }}
+        className="text-lg text-[#a855f7]"
+      >
+        Justificativa
+      </Text>
+    </View>
+
+    {/* Resposta correta em destaque */}
+    <View className="flex-row items-center bg-[#a855f7]/10 border border-[#a855f7]/30 rounded-xl px-4 py-3 mb-4">
+      <Text className="text-base mr-2">✅</Text>
+      <Text
+        style={{ fontFamily: 'Manrope_500Medium', lineHeight: 20 }}
+        className="text-white/90 text-sm flex-1"
+      >
+        <Text style={{ fontFamily: 'Manrope_700Bold' }} className="text-[#a855f7]">
+          Resposta correta:{' '}
+        </Text>
+        {currentQuestion.opcoes.find(o => o.id === currentQuestion.id_gabarito)?.rotulo}
+      </Text>
+    </View>
+
+    {/* Divisor sutil */}
+    <View className="h-[1px] bg-white/10 mb-4" />
+
+    {/* Texto da justificativa */}
+    <Text
+      style={{ fontFamily: 'Manrope_500Medium', lineHeight: 22 }}
+      className="text-white/90 text-base text-left"
+    >
+      {currentQuestion.justificativa}
+    </Text>
+  </BottomSheetView>
+</BottomSheetModal>
 
     </SafeAreaView>
   );
