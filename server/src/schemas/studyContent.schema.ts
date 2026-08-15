@@ -2,15 +2,16 @@ import { z } from "zod";
 
 // Espelha src/types/studyContent.ts do app (duplicado de propósito — ver riscos na documentação).
 
+// Status de macro_tema/sub_tema (nunca muda hoje — não há algoritmo que os atualize).
 export const statusDominioSchema = z.enum(["comecando", "em_reforco", "consolidando"]);
 
-export const tipoCognitivoSchema = z.enum([
-  "lembranca_direta",
-  "causa_consequencia",
-  "aplicacao_contextual",
-  "relacao_entre_conceitos",
-  "comparacao",
-]);
+// Status de conceito é um vocabulário à parte: nasce 'novo' e evolui via
+// POST /api/quiz/answer (ver submitAnswer.ts) até 'dominado' no nível 3.
+export const statusConceitoSchema = z.enum(["novo", "em_reforco", "consolidando", "dominado"]);
+
+// nivel 1=identificação, 2=relação entre conceitos, 3=aplicação contextual (doc MVP §5).
+export const nivelPerguntaSchema = z.union([z.literal(1), z.literal(2), z.literal(3)]);
+export const tipoPerguntaSchema = z.enum(["identificacao", "relacao", "aplicacao"]);
 
 export const respostaOpcaoSchema = z.enum(["A", "B", "C", "D"]);
 
@@ -24,20 +25,28 @@ export const alternativasSchema = z.object({
 // ── O que a IA precisa gerar por upload ──────────────────────────────────
 // Só subtemas/conceitos/perguntas: o macrotema já existe (é a disciplina escolhida
 // no dropdown), então a IA não inventa mais a organização de alto nível.
+// Cada conceito deve ter exatamente 3 perguntas — uma por nível — e a IA só
+// decide o `nivel`; o `tipo` é derivado dele no banco (ver 002_functions.sql).
 
 export const generatedPerguntaSchema = z.object({
-  tipo_cognitivo: tipoCognitivoSchema,
+  nivel: nivelPerguntaSchema,
   pergunta: z.string().min(1),
   dica: z.string().min(1), // hint pré-resposta, NÃO pode revelar a resposta certa
   alternativas: alternativasSchema,
   resposta: respostaOpcaoSchema,
   explicacao: z.string().min(1), // só aparece pós-resposta
-  dificuldade: z.number().int().min(1).max(5),
 });
 
 export const generatedConceitoSchema = z.object({
   nome: z.string().min(1),
-  perguntas: z.array(generatedPerguntaSchema).min(1),
+  tag_foco: z.boolean(),
+  perguntas: z
+    .array(generatedPerguntaSchema)
+    .length(3, "cada conceito precisa de exatamente 3 perguntas (níveis 1, 2 e 3)")
+    .refine(
+      (perguntas) => new Set(perguntas.map((p) => p.nivel)).size === 3,
+      "as 3 perguntas do conceito devem cobrir os níveis 1, 2 e 3 sem repetir"
+    ),
 });
 
 export const generatedSubTemaSchema = z.object({
@@ -58,31 +67,30 @@ export type GeneratedPergunta = z.infer<typeof generatedPerguntaSchema>;
 // Estes tipos batem 1:1 com src/types/studyContent.ts do app.
 
 export interface Performance {
-  vezes_revisada: number;
+  vezes_revisado: number;
   acertos: number;
   erros: number;
 }
 
 export interface Pergunta {
   id: string;
-  tipo_cognitivo: z.infer<typeof tipoCognitivoSchema>;
+  nivel: z.infer<typeof nivelPerguntaSchema>;
+  tipo: z.infer<typeof tipoPerguntaSchema>;
   pergunta: string;
   dica: string;
   alternativas: z.infer<typeof alternativasSchema>;
   resposta: z.infer<typeof respostaOpcaoSchema>;
   explicacao: string;
-  dificuldade: number;
-  peso_atual: number;
-  proxima_revisao: string;
-  review_stage: number;
-  performance: Performance;
 }
 
 export interface Conceito {
   id: string;
   nome: string;
-  peso_atual: number;
-  status: z.infer<typeof statusDominioSchema>;
+  status: z.infer<typeof statusConceitoSchema>;
+  nivel_atual: z.infer<typeof nivelPerguntaSchema>;
+  tag_foco: boolean;
+  proxima_revisao: string;
+  performance: Performance;
   perguntas: Pergunta[];
 }
 
@@ -98,6 +106,7 @@ export interface MacroTema {
   nome: string;
   emoji: string;
   status: z.infer<typeof statusDominioSchema>;
+  progresso: number; // 0-100, média do domínio real dos conceitos (ver studyContent.service.ts)
   subtemas_ativos: number;
   subtemas: SubTema[];
 }

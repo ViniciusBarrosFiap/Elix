@@ -1,16 +1,40 @@
-# Welcome to your Expo app 👋
+# Elix
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+App de revisão espaçada com IA: você envia um material de estudo, o Gemini organiza o
+conteúdo em subtemas/conceitos/perguntas dentro da disciplina escolhida, e o app monta
+uma dose diária de revisão priorizada pelo que você mais precisa revisar (erro, atraso,
+foco e novidade — ver [`DOCUMENTACAO.md`](DOCUMENTACAO.md)).
+
+O projeto tem duas partes com setups independentes:
+
+- **App** (Expo/React Native) — este diretório.
+- **Backend** (Express + Supabase + Gemini) — [`/server`](server), com seu próprio
+  [README](server/README.md).
+
+**Rode o backend primeiro.** Sem ele no ar, o app trava numa tela em branco no boot
+(a inicialização faz uma chamada real à API que nunca resolve).
 
 ## Get started
 
-1. Install dependencies
+1. Configure e suba o backend seguindo [`server/README.md`](server/README.md) — precisa
+   de um projeto Supabase (schema em `server/sql/`, rode os arquivos na ordem que o
+   README lista) e de uma API key do Gemini.
+
+2. Instale as dependências do app:
 
    ```bash
    npm install
    ```
 
-2. Start the app
+3. Aponte o app para o backend:
+
+   ```bash
+   cp .env.example .env
+   # edite EXPO_PUBLIC_API_BASE_URL — não use "localhost": o emulador Android usa
+   # 10.0.2.2, e um device físico precisa do IP da sua máquina na rede local.
+   ```
+
+4. Start the app
 
    ```bash
    npx expo start

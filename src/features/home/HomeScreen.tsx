@@ -4,9 +4,9 @@ import {
   BottomSheetModal,
   BottomSheetView,
 } from "@gorhom/bottom-sheet";
-import { router, useNavigation } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useRef } from "react";
-import { Animated, Text, TouchableOpacity, View } from "react-native";
+import { router, useFocusEffect } from "expo-router";
+import React, { useCallback, useEffect, useRef } from "react";
+import { Animated, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import Header from "./components/Header";
 import DoseCard from "./components/DoseCard";
 import YourContents from "./components/YourContents";
@@ -15,9 +15,7 @@ import UploadButton from "./components/UploadButton";
 import { StudyContentService } from "@/src/services/studyContent/studyContent.service";
 import { useStudyContentStore } from "@/src/store/studyContentStore";
 import { useUserDataStore } from "@/src/store/userDataStore";
-import { UserService } from "@/src/services/user/user.service";
-import { useAppInit } from "@/src/hooks/useAppInit";
-import LoadingScreen from "../loadingScreen/LoadingScreen";
+import { QuizQuestionsService } from "@/src/services/quiz/quiz.service";
 import { BlurView } from "expo-blur";
 
 export default function HomeScreen() {
@@ -27,8 +25,6 @@ export default function HomeScreen() {
   
   // 1. Ref para controlar o Bottom Sheet
   const bottomSheetModalRef = useRef<BottomSheetModal>(null);
-  // 2. Define as alturas que o Bottom Sheet pode assumir (ex: 25% e 50% da tela)
-  const snapPoints = useMemo(() => ["20%"], []);
   // 3. Função disparada pelo seu Upload Button
   const handlePresentModalPress = () => {
     bottomSheetModalRef.current?.present();
@@ -79,6 +75,16 @@ export default function HomeScreen() {
   const studyContentData = useStudyContentStore((state) => state.data);
   const userData = useUserDataStore((state) => state.data);
 
+  // Recarrega quiz/conteúdo toda vez que a Home ganha foco — sem isso, o card
+  // de dose e os conteúdos ficam presos no snapshot buscado uma única vez no
+  // boot do app, mesmo depois de um upload gerar perguntas novas.
+  useFocusEffect(
+    useCallback(() => {
+      QuizQuestionsService.initialize();
+      StudyContentService.initialize();
+    }, [])
+  );
+
   return userData?.fezUpload ? (
     <View className="flex-1 bg-[#080510]">
         <Animated.View
@@ -89,24 +95,29 @@ export default function HomeScreen() {
         }}
       >
         <Header />
-        <DoseCard
-          onPress={() => {
-            router.push("/(tabs)/quiz")
-          }}
-        />
-        <YourContents />
-        <ContentCards macroTemas={studyContentData?.macrotemas} />
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 140 }}
+        >
+          <DoseCard
+            onPress={() => {
+              router.push("/(tabs)/quiz")
+            }}
+          />
+          <YourContents onPress={() => router.push("/(tabs)/studyContents")} />
+          <ContentCards macroTemas={studyContentData?.macrotemas} />
+        </ScrollView>
       </Animated.View>
       <UploadButton onPress={handlePresentModalPress} />
       {/* O BOTTOM SHEET EM SI */}
       <BottomSheetModal
         ref={bottomSheetModalRef}
         index={0} // abre no primeiro ponto
-        snapPoints={snapPoints}
+        enableDynamicSizing // sheet mede a altura real do conteúdo em vez de um % fixo (evita área tocável cortada)
         backdropComponent={renderBackdrop}
-        backgroundStyle={{ backgroundColor: "black" }}
+       backgroundComponent={renderBackground}
       >
-        <BottomSheetView style={{ flex: 1, alignItems: "center", padding: 24 }}>
+        <BottomSheetView style={{ alignItems: "center", padding: 24 }}>
           <TouchableOpacity
             onPress={() => {
               bottomSheetModalRef.current?.dismiss();
@@ -134,35 +145,50 @@ export default function HomeScreen() {
   )
   :
   (
-    <View className="flex-1 bg-[#080510]">
-      <Animated.View
-        style={{
-          flex: 1,
-          opacity: fadeAnim,
-          transform: [{ translateY: slideAnim }],
-        }}
-      >
-        <Header />
-        <View className="flex-1 justify-center items-center px-8">
-          <Text className="text-lg font-semibold text-center text-[#d3a0fc]" style={{ marginTop: "-50%" }}>
-            Faça o upload dos seus materiais de estudo e comece a sua jornada de revisão personalizada!
-          </Text>
-          <View className="h-[100]"/>
+
+  <View className="flex-1 bg-[#080510]">
+    <Animated.View
+      style={{
+        flex: 1,
+        opacity: fadeAnim,
+        transform: [{ translateY: slideAnim }],
+      }}
+    >
+      <Header />
+
+      {/* flex-1 + justify-center + items-center = centraliza tudo dentro do espaço disponível */}
+      <View className="flex-1 justify-center items-center px-8">
+     
+
+        <View className="w-20 h-20 rounded-full bg-[#1a1230] border border-[#a855f7]/30 justify-center items-center mb-6">
+          <Text className="text-3xl">📚</Text>
         </View>
-      </Animated.View>
-      <UploadButton onPress={handlePresentModalPress} />
+
+        <Text className="text-2xl font-bold text-center text-white mb-3">
+          Vamos começar 
+        </Text>
+
+        <Text
+          className="text-base text-center text-[#d3a0fc]/90 leading-6"
+          style={{ maxWidth: 280 }}
+        >Faça o upload dos seus materiais de estudo
+        </Text>
+      </View>
+    </Animated.View>
+
+    <UploadButton onPress={handlePresentModalPress} />
       {/* O BOTTOM SHEET EM SI */}
 <BottomSheetModal
         ref={bottomSheetModalRef}
         index={0} // abre no primeiro ponto
-        snapPoints={snapPoints}
+        enableDynamicSizing // sheet mede a altura real do conteúdo em vez de um % fixo (evita área tocável cortada)
          backgroundComponent={renderBackground}
         backdropComponent={renderBackdrop}
-        
+
       >
-        <BottomSheetView style={{flex:1,alignItems:'center',padding:24}}>
-            
-              <TouchableOpacity onPress={()=>{ bottomSheetModalRef.current?.dismiss();router.push("/studyContents/addContent")}} className="flex-row items-center p-4 my-2 mx-4 rounded-xl shadow-sm elevation-1">
+        <BottomSheetView style={{alignItems:'center',padding:24}}>
+
+              <TouchableOpacity onPress={()=>{ bottomSheetModalRef.current?.dismiss();router.push("/(tabs)/studyContents/addContent")}} className="flex-row items-center p-4 my-2 mx-4 rounded-xl shadow-sm elevation-1">
                 
                 {/* Ícone posicionado à esquerda com fundo leve */}
                 <View className="mr-4 p-2.5 rounded-full">

@@ -23,7 +23,13 @@ export function detectKind(filename: string, mimeType?: string): SupportedKind {
 
 export async function extractText(buffer: Buffer, kind: SupportedKind): Promise<string> {
   if (kind === "pdf") {
-    const result = await pdfParse(buffer);
+    let result;
+    try {
+      result = await pdfParse(buffer);
+    } catch {
+      throw new HttpError(422, "Não foi possível ler este PDF — verifique se o arquivo não está corrompido.");
+    }
+
     const text = (result.text ?? "").trim();
     if (!text) {
       throw new HttpError(422, "Não foi possível extrair texto deste PDF (arquivo vazio ou digitalizado sem OCR).");
@@ -31,7 +37,13 @@ export async function extractText(buffer: Buffer, kind: SupportedKind): Promise<
     return text;
   }
 
-  const result = await mammoth.extractRawText({ buffer });
+  let result;
+  try {
+    result = await mammoth.extractRawText({ buffer });
+  } catch {
+    throw new HttpError(422, "Não foi possível ler este DOCX — verifique se o arquivo não está corrompido.");
+  }
+
   const text = (result.value ?? "").trim();
   if (!text) {
     throw new HttpError(422, "Não foi possível extrair texto deste DOCX (documento vazio).");

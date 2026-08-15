@@ -6,12 +6,12 @@ import {
   GeneratedStudyContent,
   generatedStudyContentSchema,
 } from "../../schemas/studyContent.schema";
-import { buildStudyContentPrompt, ENUM_TIPO_COGNITIVO } from "./buildPrompt";
+import { buildStudyContentPrompt } from "./buildPrompt";
 
 const perguntaItemSchema = {
   type: Type.OBJECT,
   properties: {
-    tipo_cognitivo: { type: Type.STRING, enum: ENUM_TIPO_COGNITIVO },
+    nivel: { type: Type.INTEGER },
     pergunta: { type: Type.STRING },
     dica: { type: Type.STRING },
     alternativas: {
@@ -26,9 +26,8 @@ const perguntaItemSchema = {
     },
     resposta: { type: Type.STRING, enum: ["A", "B", "C", "D"] },
     explicacao: { type: Type.STRING },
-    dificuldade: { type: Type.INTEGER },
   },
-  required: ["tipo_cognitivo", "pergunta", "dica", "alternativas", "resposta", "explicacao", "dificuldade"],
+  required: ["nivel", "pergunta", "dica", "alternativas", "resposta", "explicacao"],
 };
 
 const responseSchema = {
@@ -46,9 +45,15 @@ const responseSchema = {
               type: Type.OBJECT,
               properties: {
                 nome: { type: Type.STRING },
-                perguntas: { type: Type.ARRAY, items: perguntaItemSchema },
+                tag_foco: { type: Type.BOOLEAN },
+                perguntas: {
+                  type: Type.ARRAY,
+                  items: perguntaItemSchema,
+                  minItems: "3",
+                  maxItems: "3",
+                },
               },
-              required: ["nome", "perguntas"],
+              required: ["nome", "tag_foco", "perguntas"],
             },
           },
         },
@@ -73,6 +78,7 @@ async function callGemini(prompt: string): Promise<unknown> {
     });
     raw = response.text;
   } catch (err) {
+    console.error("Falha ao chamar o Gemini:", err);
     throw new HttpError(502, "Não foi possível gerar sua revisão agora, tente novamente em instantes.");
   }
 

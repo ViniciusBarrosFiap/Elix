@@ -1,17 +1,39 @@
+// Status de macro_tema/sub_tema — nunca muda hoje (não há algoritmo que os atualize).
 export type Status =
   | "comecando"
   | "em_reforco"
   | "consolidando";
 
-export type TipoCognitivo =
-  | "lembranca_direta"
-  | "causa_consequencia"
-  | "aplicacao_contextual"
-  | "relacao_entre_conceitos"
-  | "comparacao";
+export const STATUS_LABEL: Record<Status, string> = {
+  comecando: "Começando",
+  em_reforco: "Em reforço",
+  consolidando: "Consolidando",
+};
+
+// Status de conceito — vocabulário à parte, evolui via POST /api/quiz/answer
+// (nasce "novo" e chega a "dominado" ao acertar o nível 3).
+export type StatusConceito =
+  | "novo"
+  | "em_reforco"
+  | "consolidando"
+  | "dominado";
+
+export const STATUS_CONCEITO_LABEL: Record<StatusConceito, string> = {
+  novo: "Novo",
+  em_reforco: "Em reforço",
+  consolidando: "Consolidando",
+  dominado: "Dominado",
+};
+
+export type NivelPergunta = 1 | 2 | 3;
+
+export type TipoPergunta =
+  | "identificacao"
+  | "relacao"
+  | "aplicacao";
 
 export interface Performance {
-  vezes_revisada: number;
+  vezes_revisado: number;
   acertos: number;
   erros: number;
 }
@@ -26,7 +48,9 @@ export interface Alternativas {
 export interface Pergunta {
   id: string;
 
-  tipo_cognitivo: TipoCognitivo;
+  nivel: NivelPergunta;
+
+  tipo: TipoPergunta;
 
   pergunta: string;
 
@@ -42,16 +66,6 @@ export interface Pergunta {
   resposta: "A" | "B" | "C" | "D";
 
   explicacao: string;
-
-  dificuldade: number;
-
-  peso_atual: number;
-
-  proxima_revisao: string;
-
-  review_stage: number;
-
-  performance: Performance;
 }
 
 export interface Conceito {
@@ -59,9 +73,15 @@ export interface Conceito {
 
   nome: string;
 
-  peso_atual: number;
+  status: StatusConceito;
 
-  status: Status;
+  nivel_atual: NivelPergunta;
+
+  tag_foco: boolean;
+
+  proxima_revisao: string;
+
+  performance: Performance;
 
   perguntas: Pergunta[];
 }
@@ -84,6 +104,8 @@ export interface MacroTema {
   emoji: string;
 
   status: Status;
+
+  progresso: number;
 
   subtemas_ativos: number;
 

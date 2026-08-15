@@ -12,6 +12,7 @@ export interface AuthedUserRow {
   fez_upload: boolean;
   pontuacao: number;
   streak: number;
+  last_review_date: string | null;
 }
 
 declare global {

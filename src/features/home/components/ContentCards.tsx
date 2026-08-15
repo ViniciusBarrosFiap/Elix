@@ -1,6 +1,7 @@
-import { ScrollView } from "react-native";
+import { Pressable, ScrollView } from "react-native";
+import { router } from "expo-router";
 import LiquidFillCard from "./LiquidFillCard";
-import { MacroTema } from "@/src/types/studyContent";
+import { MacroTema, STATUS_LABEL } from "@/src/types/studyContent";
 
 interface ContentCardsProps {
   macroTemas?: MacroTema[];
@@ -22,13 +23,18 @@ const ContentCards = ({ macroTemas }: ContentCardsProps) => {
       className="w-full h-full"
     >
         {macroTemas.map((macroTema) => (
-          <LiquidFillCard
+          <Pressable
             key={macroTema.id}
-            title={macroTema.nome}
-            progress={5}
-            icon={macroTema.emoji}
-            style={{ width: 190 }}
-          />
+            onPress={() => router.push(`/(tabs)/studyContents/${macroTema.id}`)}
+          >
+            <LiquidFillCard
+              title={macroTema.nome}
+              progress={macroTema.progresso}
+              status={STATUS_LABEL[macroTema.status]}
+              icon={macroTema.emoji}
+              style={{ width: 190 }}
+            />
+          </Pressable>
         ))}
     </ScrollView>
   ) : null;

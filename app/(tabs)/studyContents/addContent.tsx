@@ -205,7 +205,7 @@ export default function AddContent() {
 
     setIsGenerating(true);
     try {
-      await MaterialsService.uploadFile(
+      const result = await MaterialsService.uploadFile(
         { uri: file.uri, name: file.name, mimeType: file.mimeType },
         selectedMacroTemaId,
         tags.map((t) => t.label)
@@ -215,13 +215,21 @@ export default function AddContent() {
         fezUpload: true,
       });
 
-      router.replace({
-        pathname: "/loadingScreen",
-        params: {
-          next: "/home",
-          title: "Gerando revisão...",
-        }
-      })
+      // Confirmação explícita e inconfundível: um Alert nativo que exige toque
+      // para fechar. A animação da loadingScreen sozinha não bastava — mesmo
+      // com texto de "pronto", o frasco enchendo sempre lê como "em andamento".
+      const macroTemaAtualizado = result.macrotemas.find((m) => m.id === selectedMacroTemaId);
+      const totalConceitos = macroTemaAtualizado
+        ? macroTemaAtualizado.subtemas.reduce((total, subtema) => total + subtema.conceitos.length, 0)
+        : 0;
+
+      Alert.alert(
+        'Revisão gerada com sucesso!',
+        macroTemaAtualizado
+          ? `${totalConceitos} conceitos foram criados em "${macroTemaAtualizado.nome}". A dose diária mostra até 5 por vez, priorizando o que for mais urgente — o resto entra nos próximos dias.`
+          : 'Suas perguntas já estão disponíveis para revisão.',
+        [{ text: 'Ver revisão', onPress: () => router.replace('/home') }]
+      );
     } catch (error) {
       const mensagem = error instanceof Error ? error.message : 'Não foi possível gerar sua revisão agora.';
       Alert.alert('Erro ao gerar revisão', mensagem);
@@ -512,7 +520,15 @@ export default function AddContent() {
             </Pressable>
 
             {/* Import Notion */}
-            <Pressable className="w-full bg-[#1a1528] active:bg-[#201a30] border border-white/5 rounded-2xl p-5 flex-row items-center justify-between">
+            <Pressable
+              className="w-full bg-[#1a1528] active:bg-[#201a30] border border-white/5 rounded-2xl p-5 flex-row items-center justify-between"
+              onPress={() =>
+                Alert.alert(
+                  'Em breve',
+                  'A importação direto do Notion ainda está em desenvolvimento. Por enquanto, anexe o arquivo abaixo.'
+                )
+              }
+            >
               <View className="flex-row items-center flex-1">
                 <View className="w-12 h-12 rounded-xl bg-black items-center justify-center border border-white/10 mr-4">
                   <Image
@@ -634,6 +650,11 @@ export default function AddContent() {
             </View>
           </LinearGradient>
         </TouchableOpacity>
+        {isGenerating && (
+          <Text className="text-center text-[#a09ba8] text-xs mt-3">
+            Isso pode levar alguns minutos — a IA está lendo seu material. Não feche o app.
+          </Text>
+        )}
       </LinearGradient>
     </SafeAreaView>
 

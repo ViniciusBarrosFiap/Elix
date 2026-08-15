@@ -10,6 +10,7 @@ export interface QuizQuestion {
   dica: string;
   opcoes: QuizOption[];
   id_gabarito: string;
+  justificativa: string;
 }
 
 export interface QuizQuestionsData {

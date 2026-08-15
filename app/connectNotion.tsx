@@ -11,6 +11,7 @@ import {
 } from 'lucide-react-native';
 import React from 'react';
 import {
+  Alert,
   Pressable,
   ScrollView,
   StatusBar,
@@ -166,7 +167,15 @@ export default function ConnectNotionScreen() {
           </Text>
         </View>
 
-        <Pressable className="active:opacity-90">
+        <Pressable
+          className="active:opacity-90"
+          onPress={() =>
+            Alert.alert(
+              'Em breve',
+              'A integração com o Notion ainda está em desenvolvimento. Por enquanto, envie seus materiais direto pelo app.'
+            )
+          }
+        >
           <LinearGradient
             colors={['#8a2be2', '#5d3587']}
             start={{ x: 0, y: 0 }}

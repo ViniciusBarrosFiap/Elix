@@ -1,4 +1,4 @@
-import { Feather, FontAwesome6, MaterialCommunityIcons } from "@expo/vector-icons"
+import { FontAwesome6, MaterialCommunityIcons } from "@expo/vector-icons"
 import { Image, View } from "react-native"
 import StatBadge from "./StatBadge"
 import { useUserDataStore } from "@/src/store/userDataStore";
@@ -49,9 +49,6 @@ const Header = ()=>{
                     }
                     value=""
                 />
-                <View className="absolute top-0 right-0  w-4 h-4 rounded-full items-center justify-center" style={{ backgroundColor: "#22c55e" }}>
-                    <Feather name="check" size={8} color="white" />
-                </View>
             </View>
         </View>
     )
