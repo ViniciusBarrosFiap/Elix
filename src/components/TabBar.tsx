@@ -59,10 +59,13 @@ function ElixTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   
   const pathname = usePathname();
 
-  // Lista de rotas onde o tab bar deve sumir
-  const hiddenRoutes = ['/studyContents/addContent','/quiz'];
+  // Lista de rotas (prefixos exatos) onde o tab bar deve sumir
+  const hiddenRoutes = ['/studyContents/addContent', '/quiz'];
 
-  if (hiddenRoutes.some(route => pathname.includes(route))) {
+  // Tela de detalhe da disciplina: /studyContents/<id>, exceto /studyContents/addContent
+  const isDisciplinaDetalhe = /^\/studyContents\/(?!addContent(\/|$))[^/]+/.test(pathname);
+
+  if (isDisciplinaDetalhe || hiddenRoutes.some(route => pathname.includes(route))) {
     return null;
   }
   
