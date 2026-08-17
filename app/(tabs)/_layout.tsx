@@ -1,28 +1,23 @@
 import ElixTabBar from "@/src/components/TabBar";
-import { Tabs } from "expo-router";
+import { Stack } from "expo-router";
+import { View } from "react-native";
 
+// Stack (não Tabs) para que a navegação entre as telas do app inteiro
+// aconteça "em pilha" (slide + swipe-back), já que a Tabs navigator troca de
+// tela instantaneamente. A barra flutuante (ElixTabBar) vira um overlay
+// independente, sobreposto à Stack — ver src/components/TabBar.tsx.
 export default function TabsLayout() {
-
   return (
-    <Tabs
-      tabBar={(props) => <ElixTabBar {...props} />}
-      screenOptions={{
-        headerShown: false,
-      }}
-    >
-      <Tabs.Screen
-        name="home/index"
-        options={{
-          title: "Home",
-        }}
-      />
-
-      <Tabs.Screen
-        name="quiz/index"
-        options={{
-          href: null, // esconde da tab bar
-        }}
-      />
-    </Tabs>
+    <View style={{ flex: 1 }}>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="home/index" />
+        <Stack.Screen name="quiz/index" />
+        <Stack.Screen name="quiz/result" />
+        <Stack.Screen name="studyContents/index" />
+        <Stack.Screen name="studyContents/[id]" />
+        <Stack.Screen name="studyContents/addContent" />
+      </Stack>
+      <ElixTabBar />
+    </View>
   );
 }
