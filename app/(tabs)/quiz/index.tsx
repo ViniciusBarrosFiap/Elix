@@ -283,11 +283,13 @@ export default function QuizScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.chip}>
-            <Text style={styles.chipText}>{currentQuestion.categoria.toUpperCase()}</Text>
+            <Text style={styles.chipText}>{currentQuestion.disciplina.toUpperCase()}</Text>
           </View>
 
           <Text style={styles.question}>{currentQuestion.titulo}</Text>
-          <Text style={styles.hint}>{currentQuestion.dica}</Text>
+          {currentQuestion.ja_errou && (
+            <Text style={styles.hint}>{currentQuestion.dica}</Text>
+          )}
 
           <View style={styles.optionsList}>
             {currentQuestion.opcoes.map((opt) => {
@@ -347,10 +349,11 @@ export default function QuizScreen() {
         </ScrollView>
       </View>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { flexDirection: 'row', gap: 12 }]}>
         <TouchableOpacity
           style={[
             styles.nextButton,
+            { flex: 1 },
             !selected && !confirmed && styles.nextButtonDisabled
           ]}
           activeOpacity={0.85}
@@ -367,7 +370,17 @@ export default function QuizScreen() {
                   : 'Próxima →'}
           </Text>
         </TouchableOpacity>
-     
+        {confirmed && (
+          <TouchableOpacity
+            onPress={() => bottomSheetModalRef.current?.present()}
+            activeOpacity={0.8}
+            style={styles.helpButton}
+            accessibilityLabel="Ver justificativa"
+          >
+            <Text style={styles.helpButtonText}>?</Text>
+          </TouchableOpacity>
+        )}
+
       </View>
 
      <BottomSheetModal
@@ -562,5 +575,21 @@ const styles = StyleSheet.create({
     fontFamily: 'Manrope_700Bold',
     fontSize: 17,
     color: C.onPrimaryContainer,
+  },
+  helpButton: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: C.surfaceContainerHigh,
+    borderWidth: 1.5,
+    borderColor: C.outlineVariant,
+    flexShrink: 0,
+  },
+  helpButtonText: {
+    fontFamily: 'Manrope_700Bold',
+    fontSize: 20,
+    color: C.primary,
   },
 });
