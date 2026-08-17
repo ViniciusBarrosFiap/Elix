@@ -1,6 +1,6 @@
-import { ArrowLeft, Star } from "lucide-react-native";
+import { ArrowLeft, ChevronDown, Sparkles, Star, TrendingUp } from "lucide-react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StatusBar, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -8,6 +8,8 @@ import { StudyContentService } from "@/src/services/studyContent/studyContent.se
 import { useStudyContentStore } from "@/src/store/studyContentStore";
 import { STATUS_LABEL, STATUS_CONCEITO_LABEL, StatusConceito } from "@/src/types/studyContent";
 
+// Cores de status por conceito. Carregam significado próprio (nível de
+// domínio), então ficam fora da paleta roxa do tema — igual ao original.
 const STATUS_CONCEITO_COLOR: Record<StatusConceito, string> = {
   novo: "#a09ba8",
   em_reforco: "#f0a030",
@@ -15,18 +17,243 @@ const STATUS_CONCEITO_COLOR: Record<StatusConceito, string> = {
   dominado: "#22c55e",
 };
 
+// Tokens do design system "The Cognitive Sanctuary" (mesmos já usados no
+// app — só nomeei para reaproveitar em vários pontos da tela).
+const PRIMARY = "#8a2be2";
+const PRIMARY_LIGHT = "#dcb8ff";
+const ON_PRIMARY_CONTAINER = "#eed9ff";
+const SURFACE_DIM = "#080510";
+const SURFACE_SUBTEMA = "#120e1c"; // fundo do container de cada subtema
+const SURFACE_CONCEITO = "#1a1528"; // fundo do card de conceito, um tom acima (fica "por cima" do subtema)
+const SURFACE_BADGE = "#231d28"; // círculo de ícone dentro do card de conceito, mais um tom acima
+const MUTED = "#a09ba8";
+
+// Quantos subtemas ficam sempre visíveis (sem precisar tocar em nada).
+const MAX_SUBTEMAS_VISIVEIS = 4;
+
 export default function DisciplinaDetalhe() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const studyContentData = useStudyContentStore((state) => state.data);
   const macroTema = studyContentData?.macrotemas.find((m) => m.id === id);
 
+  type SubtemaItem = NonNullable<typeof macroTema>["subtemas"][number];
+
+  // Controla quais subtemas estão com os conceitos expandidos. Funciona
+  // igual pros 4 principais e pros que aparecem em "mostrar mais".
+  const [subtemasAbertos, setSubtemasAbertos] = useState<Set<string>>(new Set());
+  // Controla se o grupo extra de subtemas está revelado (inline, sem modal).
+  const [mostrarTodos, setMostrarTodos] = useState(false);
+
+  const toggleSubtema = (subtemaId: string) => {
+    setSubtemasAbertos((prev) => {
+      const proximo = new Set(prev);
+      if (proximo.has(subtemaId)) {
+        proximo.delete(subtemaId);
+      } else {
+        proximo.add(subtemaId);
+      }
+      return proximo;
+    });
+  };
+
+  // Quantos conceitos de um subtema têm pelo menos 1 erro registrado.
+  const contarConceitosComErro = (subtema: SubtemaItem) =>
+    subtema.conceitos.filter((c) => c.performance.erros > 0).length;
+
+  // Subtemas ordenados do que mais tem conceitos com erro para o que
+  // menos tem. Os 4 primeiros aparecem sempre visíveis; o resto fica
+  // atrás do "Mostrar mais", na própria tela (sem modal).
+  const subtemasOrdenados = useMemo(() => {
+    if (!macroTema) return [];
+    return [...macroTema.subtemas].sort(
+      (a, b) => contarConceitosComErro(b) - contarConceitosComErro(a)
+    );
+  }, [macroTema]);
+
+  const subtemasPrincipais = subtemasOrdenados.slice(0, MAX_SUBTEMAS_VISIVEIS);
+  const subtemasRestantes = subtemasOrdenados.slice(MAX_SUBTEMAS_VISIVEIS);
+
   useEffect(() => {
     StudyContentService.initialize();
   }, []);
 
+  // Lista de conceitos de um subtema (reaproveitada pelos dois formatos
+  // de cabeçalho abaixo — o "cheio" dos 4 principais e o compacto do
+  // grupo "mostrar mais").
+  const renderListaConceitos = (subtema: SubtemaItem) => (
+    <View style={{ gap: 10 }}>
+      {subtema.conceitos.map((conceito) => (
+        <View
+          key={conceito.id}
+          className="rounded-[18px] p-4"
+          style={{
+            backgroundColor: SURFACE_CONCEITO,
+            borderWidth: 1,
+            borderColor: "rgba(255,255,255,0.04)",
+          }}
+        >
+          <View className="flex-row items-center justify-between mb-2">
+            <View className="flex-row items-center flex-1 mr-2">
+              <View
+                className="w-8 h-8 rounded-full items-center justify-center mr-3"
+                style={{ backgroundColor: SURFACE_BADGE }}
+              >
+                {conceito.tag_foco ? (
+                  <Star size={14} color="#f0a030" fill="#f0a030" />
+                ) : (
+                  <View
+                    className="w-2 h-2 rounded-full"
+                    style={{ backgroundColor: STATUS_CONCEITO_COLOR[conceito.status] }}
+                  />
+                )}
+              </View>
+              <Text className="text-white text-sm font-medium flex-1" numberOfLines={2}>
+                {conceito.nome}
+              </Text>
+            </View>
+            <View
+              className="px-2.5 py-1 rounded-full"
+              style={{ backgroundColor: `${STATUS_CONCEITO_COLOR[conceito.status]}22` }}
+            >
+              <Text
+                className="text-[10px] uppercase font-bold tracking-wider"
+                style={{ color: STATUS_CONCEITO_COLOR[conceito.status] }}
+              >
+                {STATUS_CONCEITO_LABEL[conceito.status]}
+              </Text>
+            </View>
+          </View>
+
+          <View className="flex-row items-center justify-between">
+            <View className="flex-row items-center">
+              <Text className="text-xs mr-2" style={{ color: MUTED }}>
+                Nível
+              </Text>
+              <View className="flex-row items-center" style={{ gap: 4 }}>
+                {[1, 2, 3].map((nivel) => {
+                  const preenchido = nivel <= conceito.nivel_atual;
+                  return (
+                    <View
+                      key={nivel}
+                      style={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: 3,
+                        backgroundColor: preenchido
+                          ? STATUS_CONCEITO_COLOR[conceito.status]
+                          : "rgba(255,255,255,0.12)",
+                        ...(preenchido
+                          ? {
+                              shadowColor: STATUS_CONCEITO_COLOR[conceito.status],
+                              shadowOpacity: 0.7,
+                              shadowRadius: 3,
+                              shadowOffset: { width: 0, height: 0 },
+                            }
+                          : null),
+                      }}
+                    />
+                  );
+                })}
+              </View>
+            </View>
+            <Text className="text-xs" style={{ color: MUTED }}>
+              {conceito.performance.acertos} acertos · {conceito.performance.erros} erros
+            </Text>
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+
+  // Cabeçalho "cheio" — usado em todos os subtemas visíveis. Título em
+  // destaque + linha de status/contagem embaixo, com bolinhas mostrando a
+  // média do nível dos conceitos daquele subtema. Tudo dentro de um
+  // container com fundo próprio (um tom acima do fundo da tela).
+  const renderSubtemaPrincipal = (subtema: SubtemaItem) => {
+    const aberto = subtemasAbertos.has(subtema.id);
+
+    const mediaNivel = subtema.conceitos.length
+      ? subtema.conceitos.reduce((soma, c) => soma + c.nivel_atual, 0) / subtema.conceitos.length
+      : 0;
+    const nivelMedioArredondado = Math.round(mediaNivel);
+
+    return (
+      <View
+        key={subtema.id}
+        className="rounded-[24px] p-4"
+        style={{
+          backgroundColor: SURFACE_SUBTEMA,
+          borderWidth: 1,
+          borderColor: "rgba(255,255,255,0.04)",
+        }}
+      >
+        <Pressable onPress={() => toggleSubtema(subtema.id)} className="active:opacity-80" hitSlop={4}>
+          <View className="flex-row items-center justify-between mb-1">
+            <Text className="text-white text-lg font-semibold flex-1 mr-2" numberOfLines={1}>
+              {subtema.nome}
+            </Text>
+            <View style={{ transform: [{ rotate: aberto ? "180deg" : "0deg" }] }}>
+              <ChevronDown size={20} color={PRIMARY_LIGHT} />
+            </View>
+          </View>
+
+          <View className="flex-row items-center justify-between">
+            <View className="flex-row items-center">
+              <Text className="text-xs font-medium" style={{ color: PRIMARY_LIGHT }}>
+                {STATUS_LABEL[subtema.status]}
+              </Text>
+              <View className="w-1 h-1 rounded-full mx-2" style={{ backgroundColor: MUTED }} />
+              <Text className="text-xs" style={{ color: MUTED }}>
+                {subtema.conceitos.length} conceitos
+              </Text>
+            </View>
+
+            <View className="flex-row items-center" style={{ gap: 4 }}>
+              {[1, 2, 3].map((nivel) => {
+                const preenchido = nivel <= nivelMedioArredondado;
+                return (
+                  <View
+                    key={nivel}
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: 3,
+                      backgroundColor: preenchido ? PRIMARY_LIGHT : "rgba(255,255,255,0.15)",
+                      ...(preenchido
+                        ? {
+                            shadowColor: PRIMARY_LIGHT,
+                            shadowOpacity: 0.7,
+                            shadowRadius: 3,
+                            shadowOffset: { width: 0, height: 0 },
+                          }
+                        : null),
+                    }}
+                  />
+                );
+              })}
+            </View>
+          </View>
+        </Pressable>
+
+        {aberto && <View style={{ marginTop: 12 }}>{renderListaConceitos(subtema)}</View>}
+      </View>
+    );
+  };
+
   return (
-    <SafeAreaView className="flex-1 bg-[#080510]" edges={["top", "bottom"]}>
+    <SafeAreaView className="flex-1" style={{ backgroundColor: SURFACE_DIM }} edges={["top", "bottom"]}>
       <StatusBar barStyle="light-content" />
+
+      {/* Glow ambiente roxo atrás do header/hero — mesma ideia do
+          .ambient-glow do design system, feito com o LinearGradient que já
+          existe no projeto (sem dependência nova). */}
+      <LinearGradient
+        colors={[`${PRIMARY}40`, "rgba(8,5,16,0)"]}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={{ position: "absolute", top: 0, left: 0, right: 0, height: 280 }}
+        pointerEvents="none"
+      />
 
       <View className="px-6 pt-4 pb-2 flex-row items-center">
         <Pressable
@@ -34,118 +261,130 @@ export default function DisciplinaDetalhe() {
           className="w-10 h-10 -ml-1 items-center justify-center active:opacity-70"
           hitSlop={8}
         >
-          <ArrowLeft size={24} color="#f8f8f8" />
+          <ArrowLeft size={24} color={PRIMARY_LIGHT} />
         </Pressable>
-        <Text className="text-white text-xl font-bold ml-2" numberOfLines={1}>
-          {macroTema?.nome ?? "Disciplina"}
-        </Text>
       </View>
 
       {!macroTema ? (
         <View className="flex-1 items-center justify-center px-8">
-          <Text className="text-[#a09ba8] text-center">Carregando disciplina...</Text>
+          <Text style={{ color: MUTED }} className="text-center">
+            Carregando disciplina...
+          </Text>
         </View>
       ) : (
         <>
+          {/* Hero — fixo, igual ao original (não rola com a lista) */}
           <View className="px-6 pb-4">
-            <View className="flex-row items-center rounded-2xl p-4 border border-white/10 bg-[#120e1c]">
-              <View className="w-14 h-14 rounded-xl bg-[#1a1528] items-center justify-center border border-[#8a2be2]/20 mr-4">
-                <Text className="text-3xl">{macroTema.emoji}</Text>
+            <View className="items-center mb-2">
+              <View
+                className="w-16 h-16 rounded-full items-center justify-center mb-4"
+                style={{
+                  backgroundColor: "rgba(18,14,28,0.5)",
+                  borderWidth: 1,
+                  borderColor: `${PRIMARY}4D`,
+                  shadowColor: PRIMARY,
+                  shadowOpacity: 0.25,
+                  shadowRadius: 16,
+                  shadowOffset: { width: 0, height: 0 },
+                }}
+              >
+                <Text style={{ fontSize: 30 }}>{macroTema.emoji}</Text>
               </View>
-              <View className="flex-1">
-                <Text className="text-[#a09ba8] text-sm">
-                  {STATUS_LABEL[macroTema.status]} · {macroTema.progresso}% de domínio
+
+              <Text className="text-white text-2xl font-bold text-center mb-2" numberOfLines={2}>
+                {macroTema.nome}
+              </Text>
+
+              <View className="flex-row items-center mb-1">
+                <TrendingUp size={16} color={PRIMARY_LIGHT} />
+                <Text className="text-sm ml-1.5" style={{ color: MUTED }}>
+                  {STATUS_LABEL[macroTema.status]}
                 </Text>
-                <View className="h-2 rounded-full bg-white/10 mt-2 overflow-hidden">
-                  <View
-                    className="h-full rounded-full bg-[#8a2be2]"
-                    style={{ width: `${macroTema.progresso}%` }}
-                  />
-                </View>
+              </View>
+
+              <Text className="text-base font-medium mb-4" style={{ color: PRIMARY_LIGHT }}>
+                {macroTema.progresso}% de domínio
+              </Text>
+
+              <View
+                className="w-full h-2 rounded-full overflow-hidden"
+                style={{ backgroundColor: "rgba(255,255,255,0.08)" }}
+              >
+                <View
+                  className="h-full rounded-full"
+                  style={{ width: `${macroTema.progresso}%`, backgroundColor: PRIMARY }}
+                />
               </View>
             </View>
-
-            {macroTema.subtemas_ativos > 0 && (
-              <Pressable
-                onPress={() =>
-                  router.push({
-                    pathname: "/(tabs)/quiz",
-                    params: { macroTemaId: macroTema.id },
-                  })
-                }
-                className="active:opacity-90 mt-4"
-              >
-                <LinearGradient
-                  colors={["#7b2cbf", "#5a189a"]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={{ borderRadius: 18 }}
-                >
-                  <View className="items-center py-4">
-                    <Text className="text-white font-semibold text-base">
-                      Revisar esta disciplina agora
-                    </Text>
-                  </View>
-                </LinearGradient>
-              </Pressable>
-            )}
           </View>
 
+          {/* Lista de subtemas + conceitos — só esta parte rola */}
           <ScrollView
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 140, gap: 20 }}
+            contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 48, gap: 20 }}
           >
             {macroTema.subtemas_ativos === 0 ? (
-              <Text className="text-[#a09ba8] text-center mt-10">
+              <Text style={{ color: MUTED }} className="text-center mt-10">
                 Nenhum conteúdo ainda. Envie um material pra essa disciplina pra começar.
               </Text>
             ) : (
-              macroTema.subtemas.map((subtema) => (
-                <View key={subtema.id}>
-                  <Text className="text-white text-base font-semibold mb-1">{subtema.nome}</Text>
-                  <Text className="text-[#a09ba8] text-xs mb-3">{STATUS_LABEL[subtema.status]}</Text>
-
-                  <View style={{ gap: 10 }}>
-                    {subtema.conceitos.map((conceito) => (
-                      <View
-                        key={conceito.id}
-                        className="rounded-2xl p-4 border border-white/10 bg-[#120e1c]"
-                      >
-                        <View className="flex-row items-center justify-between mb-2">
-                          <View className="flex-row items-center flex-1 mr-2">
-                            <Text className="text-white text-sm font-medium flex-1" numberOfLines={2}>
-                              {conceito.nome}
-                            </Text>
-                            {conceito.tag_foco && (
-                              <Star size={14} color="#f0a030" fill="#f0a030" style={{ marginLeft: 6 }} />
-                            )}
-                          </View>
-                          <View
-                            className="px-2.5 py-1 rounded-full"
-                            style={{ backgroundColor: `${STATUS_CONCEITO_COLOR[conceito.status]}22` }}
-                          >
-                            <Text
-                              className="text-[10px] uppercase font-bold tracking-wider"
-                              style={{ color: STATUS_CONCEITO_COLOR[conceito.status] }}
-                            >
-                              {STATUS_CONCEITO_LABEL[conceito.status]}
-                            </Text>
-                          </View>
-                        </View>
-
-                        <View className="flex-row items-center justify-between">
-                          <Text className="text-[#a09ba8] text-xs">
-                            Nível {conceito.nivel_atual}/3
-                          </Text>
-                          <Text className="text-[#a09ba8] text-xs">
-                            {conceito.performance.acertos} acertos · {conceito.performance.erros} erros
-                          </Text>
-                        </View>
+              <>
+                <View className="flex-row items-center justify-between mb-1">
+                  <Text className="text-white text-lg font-semibold">Subtemas</Text>
+                  {subtemasRestantes.length > 0 && (
+                    <Pressable
+                      onPress={() => setMostrarTodos((v) => !v)}
+                      className="flex-row items-center active:opacity-60"
+                      hitSlop={6}
+                    >
+                      <Text className="text-sm font-medium" style={{ color: PRIMARY_LIGHT, marginRight: 4 }}>
+                        {mostrarTodos ? "Mostrar menos" : "Mostrar mais"}
+                      </Text>
+                      <View style={{ transform: [{ rotate: mostrarTodos ? "180deg" : "0deg" }] }}>
+                        <ChevronDown size={14} color={PRIMARY_LIGHT} />
                       </View>
-                    ))}
-                  </View>
+                    </Pressable>
+                  )}
                 </View>
-              ))
+
+                {subtemasPrincipais.map(renderSubtemaPrincipal)}
+
+                {mostrarTodos && subtemasRestantes.length > 0 && (
+                  <View style={{ gap: 20 }}>
+                    {subtemasRestantes.map(renderSubtemaPrincipal)}
+                  </View>
+                )}
+
+                <Pressable
+                  onPress={() =>
+                    router.push({
+                      pathname: "/(tabs)/quiz",
+                      params: { macroTemaId: macroTema.id },
+                    })
+                  }
+                  className="active:opacity-90"
+                >
+                  <LinearGradient
+                    colors={[PRIMARY, "#5b3285"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={{
+                      borderRadius: 20,
+                      shadowColor: PRIMARY,
+                      shadowOpacity: 0.35,
+                      shadowRadius: 20,
+                      shadowOffset: { width: 0, height: 0 },
+                    }}
+                  >
+                    <View className="flex-row items-center justify-center py-4 gap-2">
+                      <Sparkles size={18} color={ON_PRIMARY_CONTAINER} />
+                      <Text className="font-semibold text-base" style={{ color: ON_PRIMARY_CONTAINER }}>
+                        Revisar disciplina
+                      </Text>
+                    </View>
+                  </LinearGradient>
+                </Pressable>
+              </>
             )}
           </ScrollView>
         </>
