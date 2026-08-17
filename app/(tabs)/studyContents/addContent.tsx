@@ -621,7 +621,7 @@ export default function AddContent() {
         <TouchableOpacity
           onPress={handleGenerate}
           disabled={isGenerating}
-          style={{ opacity: isGenerating ? 0.7 : 1 }}
+          style={{ opacity: isGenerating ? 0.7 : 1, alignSelf: 'center', width: '80%' }}
           className="active:opacity-90"
         >
           <LinearGradient
