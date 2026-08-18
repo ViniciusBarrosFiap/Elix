@@ -1,7 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
-import { usePathname } from "expo-router";
-import { useEffect } from "react";
+import { router, usePathname } from "expo-router";
 import { Text, TouchableOpacity, View } from "react-native";
  
 // ─── Tab definitions 
@@ -54,9 +52,14 @@ const TABS = [
 ];
  
 // ─── Custom Tab Bar
- 
-function ElixTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
-  
+//
+// Overlay flutuante independente de qualquer navigator de tabs — a navegação
+// do app inteiro roda numa Stack (ver app/(tabs)/_layout.tsx), então esta
+// barra só lê a rota atual (usePathname) e navega via router.navigate, que
+// reaproveita a tela já empilhada em vez de duplicar (mesmo efeito de "trocar
+// de tab" que a Tabs navigator dava, mas preservando a transição em pilha).
+
+function ElixTabBar() {
   const pathname = usePathname();
 
   // Lista de rotas (prefixos exatos) onde o tab bar deve sumir
@@ -68,7 +71,7 @@ function ElixTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   if (isDisciplinaDetalhe || hiddenRoutes.some(route => pathname.includes(route))) {
     return null;
   }
-  
+
   return (
     <View
       style={{
@@ -78,7 +81,7 @@ function ElixTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
         right: 0,
         paddingHorizontal: 16,
         paddingBottom: 28,
-  
+
       }}
     >
       {/* Pill container */}
@@ -93,30 +96,22 @@ function ElixTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
           borderColor: "#453764"
         }}
       >
-        {state.routes.map((route, index) => {
-          const tab = TABS.find((t) => t.name === route.name);
-          if (!tab) return null;
-          const focused = state.index === index;
-          const { options } = descriptors[route.key];
- 
+        {TABS.map((tab) => {
+          const focused = pathname === `/${tab.name.replace(/\/index$/, "")}`;
+
           const onPress = () => {
-            const event = navigation.emit({
-              type: "tabPress",
-              target: route.key,
-              canPreventDefault: true,
-            });
-            if (!focused && !event.defaultPrevented) {
-              navigation.navigate(route.name);
+            if (!focused) {
+              router.navigate(`/(tabs)/${tab.name}` as never);
             }
           };
- 
+
           return (
             <TouchableOpacity
-              key={route.key}
+              key={tab.name}
               onPress={onPress}
               accessibilityRole="button"
               accessibilityState={focused ? { selected: true } : {}}
-              accessibilityLabel={options.tabBarAccessibilityLabel}
+              accessibilityLabel={tab.label}
               activeOpacity={0.7}
               style={{
                 flex: 1,
