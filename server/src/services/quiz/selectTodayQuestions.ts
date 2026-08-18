@@ -21,6 +21,9 @@ interface ConceitoRow {
     resposta: "A" | "B" | "C" | "D";
     explicacao: string;
   }[];
+  sub_temas: {
+    macro_temas: { nome: string };
+  };
 }
 
 /**
@@ -68,7 +71,7 @@ export async function selectTodayQuestions(
       id, nome, nivel_atual, tag_foco, proxima_revisao, performance,
       perguntas ( id, nivel, pergunta, dica, alternativas, resposta, explicacao ),
       sub_temas!inner (
-        macro_temas!inner ( id, user_id, ativo )
+        macro_temas!inner ( id, nome, user_id, ativo )
       )
     `
     )
@@ -113,8 +116,10 @@ export async function selectTodayQuestions(
     return {
       id: pergunta.id,
       categoria: conceito.nome,
+      disciplina: conceito.sub_temas.macro_temas.nome,
       titulo: pergunta.pergunta,
       dica: pergunta.dica,
+      ja_errou: conceito.performance.erros > 0,
       opcoes: (["A", "B", "C", "D"] as const).map((letra) => ({
         id: letra.toLowerCase(),
         rotulo: alternativas[letra],
