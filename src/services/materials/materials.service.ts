@@ -11,4 +11,14 @@ export const MaterialsService = {
 
     return result;
   },
+
+  async uploadYoutubeLink(url: string, macroTemaId: string, tags: string[]) {
+    const result = await MaterialsRepository.uploadYoutubeLink(url, macroTemaId, tags);
+
+    useStudyContentStore
+      .getState()
+      .setData({ macrotemas: result.macrotemas });
+
+    return result;
+  },
 };

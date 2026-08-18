@@ -1,7 +1,7 @@
 import { Router } from "express";
 import multer from "multer";
 import { deviceAuth } from "../middlewares/deviceAuth";
-import { uploadMaterial } from "../controllers/materials.controller";
+import { uploadMaterial, uploadYoutubeMaterial } from "../controllers/materials.controller";
 import { env } from "../config/env";
 
 const upload = multer({
@@ -12,3 +12,4 @@ const upload = multer({
 export const materialsRouter = Router();
 
 materialsRouter.post("/", deviceAuth, upload.single("file"), uploadMaterial);
+materialsRouter.post("/youtube", deviceAuth, uploadYoutubeMaterial);

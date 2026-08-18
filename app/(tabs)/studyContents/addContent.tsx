@@ -8,6 +8,7 @@ import {
   Dimensions,
   FlatList,
   Image,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -26,6 +27,7 @@ import {
   ChevronDown,
   ChevronRight,
   FileText,
+  Link2,
   Paperclip,
   Plus,
   Tag,
@@ -51,8 +53,11 @@ type AttachedFile = {
   name: string;
   size: string;
   pages: string;
-  kind: 'pdf' | 'docx';
+  kind: 'pdf' | 'docx' | 'youtube';
 };
+
+const YOUTUBE_FILE_ID = 'youtube-link';
+const YOUTUBE_URL_RE = /^https?:\/\/(www\.|m\.)?(youtube\.com\/(watch\?v=|shorts\/|embed\/)|youtu\.be\/)/i;
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -82,6 +87,13 @@ export default function AddContent() {
 
   const [tags, setTags] = useState<TagItem[]>([]);
   const [file, setFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
+
+  // Fonte alternativa ao arquivo: link do YouTube (transcrição vira o texto
+  // de entrada da geração). Só uma fonte fica ativa por vez — ver
+  // selecionarDocumento/handleAddYoutubeLink.
+  const [youtubeUrl, setYoutubeUrl] = useState<string | null>(null);
+  const [isYoutubeModalOpen, setIsYoutubeModalOpen] = useState(false);
+  const [youtubeInputText, setYoutubeInputText] = useState('');
 
   const [newTagText, setNewTagText] = useState('');
   const [isAddingTag, setIsAddingTag] = useState(false);
@@ -116,6 +128,33 @@ export default function AddContent() {
 
   const handleRemoveFile = (id: string) => {
     setFiles((prev) => prev.filter((f) => f.id !== id));
+    if (id === YOUTUBE_FILE_ID) {
+      setYoutubeUrl(null);
+    }
+  };
+
+  const handleAddYoutubeLink = () => {
+    const url = youtubeInputText.trim();
+    if (!YOUTUBE_URL_RE.test(url)) {
+      Alert.alert('Link inválido', 'Cole um link válido de um vídeo do YouTube.');
+      return;
+    }
+
+    // Só uma fonte por vez: um link novo substitui um arquivo já selecionado.
+    setFile(null);
+    setFiles((prev) => [
+      ...prev.filter((f) => f.id !== YOUTUBE_FILE_ID),
+      {
+        id: YOUTUBE_FILE_ID,
+        name: url,
+        size: 'Vídeo',
+        pages: 'Transcrição do YouTube',
+        kind: 'youtube',
+      } as AttachedFile,
+    ]);
+    setYoutubeUrl(url);
+    setYoutubeInputText('');
+    setIsYoutubeModalOpen(false);
   };
 
   const handleAddTag = () => {
@@ -166,10 +205,12 @@ export default function AddContent() {
           kind: tipoExtensão,
         };
 
-        // 4. Atualizar os estados corretamente
+        // 4. Atualizar os estados corretamente (só uma fonte por vez — um
+        // arquivo novo substitui um link do YouTube já colado).
+        setYoutubeUrl(null);
         setFile(arquivoSelecionado); // Se ainda precisar do asset bruto
-        setFiles((prev) => [...prev, novoArquivo]); // Adiciona o novo arquivo à lista existente
-        
+        setFiles((prev) => [...prev.filter((f) => f.id !== YOUTUBE_FILE_ID), novoArquivo]); // Adiciona o novo arquivo à lista existente
+
       } else {
         Alert.alert('Cancelado', 'Nenhum arquivo foi selecionado.');
       }
@@ -198,18 +239,24 @@ export default function AddContent() {
       return;
     }
 
-    if (!file) {
-      Alert.alert('Selecione um arquivo', 'Anexe um material (PDF ou DOCX) antes de gerar a revisão.');
+    if (!file && !youtubeUrl) {
+      Alert.alert('Selecione uma fonte', 'Anexe um material (PDF ou DOCX) ou cole um link do YouTube antes de gerar a revisão.');
       return;
     }
 
     setIsGenerating(true);
     try {
-      const result = await MaterialsService.uploadFile(
-        { uri: file.uri, name: file.name, mimeType: file.mimeType },
-        selectedMacroTemaId,
-        tags.map((t) => t.label)
-      );
+      const result = youtubeUrl
+        ? await MaterialsService.uploadYoutubeLink(
+            youtubeUrl,
+            selectedMacroTemaId,
+            tags.map((t) => t.label)
+          )
+        : await MaterialsService.uploadFile(
+            { uri: file!.uri, name: file!.name, mimeType: file!.mimeType },
+            selectedMacroTemaId,
+            tags.map((t) => t.label)
+          );
 
       await UserService.updateUser({
         fezUpload: true,
@@ -519,6 +566,27 @@ export default function AddContent() {
               <ChevronRight size={22} color="#8A2BE2" />
             </Pressable>
 
+            {/* Link do YouTube */}
+            <Pressable
+              onPress={() => setIsYoutubeModalOpen(true)}
+              className="w-full bg-[#1a1528] active:bg-[#201a30] border border-white/5 rounded-2xl p-5 flex-row items-center justify-between mb-4"
+            >
+              <View className="flex-row items-center flex-1">
+                <View className="w-12 h-12 rounded-xl bg-[#110e1b] items-center justify-center border border-white/5 mr-4">
+                  <Link2 size={24} color="#ff4b4b" />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-base font-semibold text-white mb-1">
+                    Colar link do YouTube
+                  </Text>
+                  <Text className="text-xs text-[#a09ba8]">
+                    Geramos a revisão a partir da transcrição do vídeo
+                  </Text>
+                </View>
+              </View>
+              <ChevronRight size={22} color="#8A2BE2" />
+            </Pressable>
+
             {/* Import Notion */}
             <Pressable
               className="w-full bg-[#1a1528] active:bg-[#201a30] border border-white/5 rounded-2xl p-5 flex-row items-center justify-between"
@@ -565,13 +633,19 @@ export default function AddContent() {
                   <View className="flex-row items-center flex-1 mr-2">
                     <View
                       className={`w-12 h-14 rounded-lg items-center justify-center mr-4 ${
-                        file.kind === 'pdf' ? 'bg-[#e53935]' : 'bg-[#1e88e5]'
+                        file.kind === 'pdf'
+                          ? 'bg-[#e53935]'
+                          : file.kind === 'youtube'
+                            ? 'bg-[#ff4b4b]'
+                            : 'bg-[#1e88e5]'
                       }`}
                     >
                       {file.kind === 'pdf' ? (
                         <Text className="text-white text-[11px] font-bold tracking-wider">
                           PDF
                         </Text>
+                      ) : file.kind === 'youtube' ? (
+                        <Link2 size={24} color="#ffffff" />
                       ) : (
                         <FileText size={24} color="#ffffff" />
                       )}
@@ -606,6 +680,54 @@ export default function AddContent() {
             </View>
           </View>
         </View>
+
+        <Modal
+          visible={isYoutubeModalOpen}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setIsYoutubeModalOpen(false)}
+        >
+          <Pressable
+            className="flex-1 bg-black/60 justify-end"
+            onPress={() => setIsYoutubeModalOpen(false)}
+          >
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+              <Pressable className="bg-[#1a1528] rounded-t-3xl overflow-hidden" onPress={(e) => e.stopPropagation()}>
+                <View className="px-6 pt-5 pb-4 border-b border-white/10">
+                  <Text className="text-white text-base font-semibold">Colar link do YouTube</Text>
+                  <Text className="text-xs text-[#a09ba8] mt-1">
+                    Cole a URL de um vídeo com legendas disponíveis.
+                  </Text>
+                </View>
+                <View className="px-6 py-5">
+                  <TextInput
+                    value={youtubeInputText}
+                    onChangeText={setYoutubeInputText}
+                    placeholder="https://www.youtube.com/watch?v=..."
+                    placeholderTextColor="#a09ba8"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    keyboardType="url"
+                    className="text-white text-base bg-[#110e1b] border border-white/10 rounded-xl px-4 py-3 mb-5"
+                  />
+                  <Pressable onPress={handleAddYoutubeLink} className="active:opacity-90">
+                    <LinearGradient
+                      colors={['#7b2cbf', '#5a189a']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={{ borderRadius: 16 }}
+                    >
+                      <View className="items-center justify-center py-4">
+                        <Text className="font-semibold text-white text-base">Adicionar</Text>
+                      </View>
+                    </LinearGradient>
+                  </Pressable>
+                </View>
+                <View style={{ height: 20 }} />
+              </Pressable>
+            </KeyboardAvoidingView>
+          </Pressable>
+        </Modal>
 
            </View>
       </ScrollView>

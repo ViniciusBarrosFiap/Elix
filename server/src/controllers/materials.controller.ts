@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { HttpError } from "../middlewares/errorHandler";
-import { processUpload } from "../services/materials.service";
+import { processUpload, processYoutubeLink } from "../services/materials.service";
 
 function parseTags(raw: unknown): string[] {
   if (raw === undefined || raw === null || raw === "") return [];
@@ -45,6 +45,32 @@ export async function uploadMaterial(req: Request, res: Response) {
       size: file.size,
       buffer: file.buffer,
     },
+  });
+
+  return res.status(200).json(result);
+}
+
+const YOUTUBE_URL_RE = /^https?:\/\/(www\.|m\.)?(youtube\.com\/(watch\?v=|shorts\/|embed\/)|youtu\.be\/)/i;
+
+// POST /api/materials/youtube — transcrição do vídeo + geração síncrona.
+export async function uploadYoutubeMaterial(req: Request, res: Response) {
+  const url = (req.body.url as string | undefined)?.trim();
+  if (!url || !YOUTUBE_URL_RE.test(url)) {
+    throw new HttpError(400, "Informe um link válido do YouTube.");
+  }
+
+  const macroTemaId = req.body.macro_tema_id as string | undefined;
+  if (!macroTemaId) {
+    throw new HttpError(400, "Selecione uma disciplina (macro_tema_id) antes de enviar o vídeo.");
+  }
+
+  const tags = parseTags(req.body.tags);
+
+  const result = await processYoutubeLink({
+    userId: req.user!.id,
+    macroTemaId,
+    tags,
+    url,
   });
 
   return res.status(200).json(result);

@@ -37,4 +37,15 @@ export const MaterialsRepository = {
       rawBody: formData,
     });
   },
+
+  async uploadYoutubeLink(
+    url: string,
+    macroTemaId: string,
+    tags: string[]
+  ): Promise<UploadMaterialResult> {
+    return apiFetch<UploadMaterialResult>("/api/materials/youtube", {
+      method: "POST",
+      body: { url, macro_tema_id: macroTemaId, tags },
+    });
+  },
 };

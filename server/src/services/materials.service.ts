@@ -2,6 +2,7 @@ import { supabase } from "../config/supabase";
 import { env } from "../config/env";
 import { HttpError } from "../middlewares/errorHandler";
 import { detectKind, extractText } from "./ingestion/extractText";
+import { fetchYoutubeTranscript } from "./ingestion/fetchYoutubeTranscript";
 import { generateStudyContent } from "./ingestion/generateStudyContent";
 import { persistStudyContent } from "./ingestion/persistStudyContent";
 import { assertMacroTemaBelongsToUser } from "./macroTemas.service";
@@ -21,7 +22,14 @@ interface ProcessUploadInput {
   };
 }
 
-interface ProcessUploadResult {
+interface ProcessYoutubeLinkInput {
+  userId: string;
+  macroTemaId: string;
+  tags: string[];
+  url: string;
+}
+
+interface ProcessMaterialResult {
   material_id: string;
   macrotemas: StudyContentData["macrotemas"];
 }
@@ -33,23 +41,69 @@ async function markMaterialAsErrored(materialId: string, mensagem: string) {
     .eq("id", materialId);
 }
 
-export async function processUpload({
-  userId,
-  macroTemaId,
-  tags,
-  file,
-}: ProcessUploadInput): Promise<ProcessUploadResult> {
-  await assertMacroTemaBelongsToUser(macroTemaId, userId);
-
-  const { data: macroTema, error: macroTemaError } = await supabase
+async function getMacroTemaNome(macroTemaId: string): Promise<string> {
+  const { data: macroTema, error } = await supabase
     .from("macro_temas")
     .select("nome")
     .eq("id", macroTemaId)
     .single();
 
-  if (macroTemaError || !macroTema) {
+  if (error || !macroTema) {
     throw new HttpError(404, "Macrotema não encontrado.");
   }
+
+  return macroTema.nome as string;
+}
+
+/**
+ * Núcleo compartilhado: dado um texto já extraído (de PDF/DOCX ou de uma
+ * transcrição do YouTube) e o material já registrado como "processando",
+ * gera o conteúdo via Gemini, persiste e devolve a árvore atualizada.
+ * Em caso de erro, marca o material como "erro" antes de repropagar.
+ */
+async function processExtractedText({
+  userId,
+  macroTemaId,
+  materialId,
+  disciplinaNome,
+  tags,
+  texto,
+}: {
+  userId: string;
+  macroTemaId: string;
+  materialId: string;
+  disciplinaNome: string;
+  tags: string[];
+  texto: string;
+}): Promise<ProcessMaterialResult> {
+  const generated = await generateStudyContent({
+    disciplinaNome,
+    tags,
+    texto: texto.slice(0, env.MAX_INPUT_CHARS),
+  });
+
+  await persistStudyContent(macroTemaId, generated);
+
+  await supabase
+    .from("materials")
+    .update({ status: "concluido", processed_at: new Date().toISOString() })
+    .eq("id", materialId);
+
+  await supabase.from("users").update({ fez_upload: true }).eq("id", userId);
+
+  const studyContent = await getStudyContent(userId);
+
+  return { material_id: materialId, macrotemas: studyContent.macrotemas };
+}
+
+export async function processUpload({
+  userId,
+  macroTemaId,
+  tags,
+  file,
+}: ProcessUploadInput): Promise<ProcessMaterialResult> {
+  await assertMacroTemaBelongsToUser(macroTemaId, userId);
+  const disciplinaNome = await getMacroTemaNome(macroTemaId);
 
   const { data: material, error: insertError } = await supabase
     .from("materials")
@@ -86,28 +140,48 @@ export async function processUpload({
 
     const kind = detectKind(file.originalname, file.mimetype);
     const fullText = await extractText(file.buffer, kind);
-    const texto = fullText.slice(0, env.MAX_INPUT_CHARS);
 
-    const generated = await generateStudyContent({
-      disciplinaNome: macroTema.nome,
-      tags,
-      texto,
-    });
-
-    await persistStudyContent(macroTemaId, generated);
-
-    await supabase
-      .from("materials")
-      .update({ status: "concluido", processed_at: new Date().toISOString() })
-      .eq("id", materialId);
-
-    await supabase.from("users").update({ fez_upload: true }).eq("id", userId);
-
-    const studyContent = await getStudyContent(userId);
-
-    return { material_id: materialId, macrotemas: studyContent.macrotemas };
+    return await processExtractedText({ userId, macroTemaId, materialId, disciplinaNome, tags, texto: fullText });
   } catch (err) {
     const mensagem = err instanceof HttpError ? err.message : "Falha inesperada ao processar o material.";
+    await markMaterialAsErrored(materialId, mensagem);
+    throw err instanceof HttpError ? err : new HttpError(500, mensagem);
+  }
+}
+
+export async function processYoutubeLink({
+  userId,
+  macroTemaId,
+  tags,
+  url,
+}: ProcessYoutubeLinkInput): Promise<ProcessMaterialResult> {
+  await assertMacroTemaBelongsToUser(macroTemaId, userId);
+  const disciplinaNome = await getMacroTemaNome(macroTemaId);
+
+  const { data: material, error: insertError } = await supabase
+    .from("materials")
+    .insert({
+      user_id: userId,
+      macro_tema_id: macroTemaId,
+      nome_arquivo: url,
+      mime_type: "video/youtube",
+      tags,
+      status: "processando",
+    })
+    .select("id")
+    .single();
+
+  if (insertError || !material) {
+    throw new HttpError(500, "Falha ao registrar o material enviado.");
+  }
+
+  const materialId = material.id as string;
+
+  try {
+    const texto = await fetchYoutubeTranscript(url);
+    return await processExtractedText({ userId, macroTemaId, materialId, disciplinaNome, tags, texto });
+  } catch (err) {
+    const mensagem = err instanceof HttpError ? err.message : "Falha inesperada ao processar o vídeo.";
     await markMaterialAsErrored(materialId, mensagem);
     throw err instanceof HttpError ? err : new HttpError(500, mensagem);
   }
