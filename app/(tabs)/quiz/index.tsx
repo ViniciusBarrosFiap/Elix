@@ -1,4 +1,5 @@
 import { Feather } from '@expo/vector-icons';
+import { CheckCircle2 } from 'lucide-react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import '@/global.css'
@@ -189,45 +190,84 @@ export default function QuizScreen() {
 
   if(!currentQuestion) {
     return (
-         <SafeAreaView style={styles.safe} edges={['top', 'bottom']} className="flex-1 justify-center items-center px-8">
-      {/* Glow decorativo */}
-      
+      <SafeAreaView style={styles.safe} edges={['top', 'bottom']} className="flex-1 justify-center items-center px-8">
+        {/* Emblema de sucesso, com glow suave atrás */}
+        <View
+          style={{ alignItems: 'center', justifyContent: 'center', marginBottom: 32 }}
+        >
+          <View
+            style={{
+              position: 'absolute',
+              width: 176,
+              height: 176,
+              borderRadius: 88,
+              backgroundColor: C.primaryContainer,
+              opacity: 0.18,
+            }}
+          />
+          <LinearGradient
+            colors={['#8a2be2', '#5d3587']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{
+              width: 96,
+              height: 96,
+              borderRadius: 48,
+              alignItems: 'center',
+              justifyContent: 'center',
+              shadowColor: '#8a2be2',
+              shadowOffset: { width: 0, height: 8 },
+              shadowOpacity: 0.5,
+              shadowRadius: 20,
+              elevation: 10,
+            }}
+          >
+            <CheckCircle2 size={44} color="#ffffff" strokeWidth={2.2} />
+          </LinearGradient>
+        </View>
 
-      {/* Emblema de sucesso */}
-      <View className="w-20 h-20 rounded-full bg-[#1a1230] border border-[#a855f7]/30 justify-center items-center mb-6">
-        <Text className="text-4xl">✅</Text>
-      </View>
+        <Text
+          style={{
+            fontFamily: 'Manrope_800ExtraBold',
+            fontSize: 30,
+            lineHeight: 38,
+            marginTop:23,
+            letterSpacing: -0.5,
+          }}
+          className="text-white text-center mb-3"
+        >
+          Revisão diária concluída
+        </Text>
 
-      <Text
-        style={{ fontFamily: 'Manrope_700Bold' }}
-        className="text-2xl text-white text-center mb-2"
-      >
-        Revisão diária concluída
-      </Text>
+        <Text
+          style={{ color: C.onSurfaceVariant, fontFamily: 'Manrope_500Medium', maxWidth: 280 }}
+          className="text-base text-center leading-6 mb-10"
+        >
+          Você respondeu todas as perguntas de hoje
+        </Text>
 
-      <Text
-        style={{ color: C.onSurfaceVariant, fontFamily: 'Manrope_500Medium', maxWidth: 280 }}
-        className="text-base text-center leading-6 mb-8"
-      >
-        Você respondeu todas as perguntas de hoje. Volte amanhã para continuar sua jornada de revisão!
-      </Text>
-
-      <Pressable onPress={()=> router.back()} className=" active:opacity-90">
-               <LinearGradient
-                 colors={['#8a2be2', '#5d3587']}
-                 start={{ x: 0, y: 0 }}
-                 end={{ x: 1, y: 0 }}
-                 style={{ borderRadius: 999 }}
-               >
-                 <View className="flex-row items-center justify-center py-4 rounded-full">
-                   
-                   <Text className="font-semibold text-[#ffffff] text-[15px]">
-                     Voltar 
-                   </Text>
-                 </View>
-               </LinearGradient>
-             </Pressable>
-    </SafeAreaView>
+        <Pressable onPress={() => router.back()} className="active:opacity-90 w-full" style={{ maxWidth: 280 }}>
+          <LinearGradient
+            colors={['#8a2be2', '#5d3587']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={{
+              borderRadius: 999,
+              shadowColor: '#8a2be2',
+              shadowOffset: { width: 0, height: 6 },
+              shadowOpacity: 0.4,
+              shadowRadius: 16,
+              elevation: 8,
+            }}
+          >
+            <View className="flex-row items-center justify-center py-4 rounded-full">
+              <Text className="font-semibold text-[#ffffff] text-[15px]">
+                Voltar
+              </Text>
+            </View>
+          </LinearGradient>
+        </Pressable>
+      </SafeAreaView>
     );
   }
 
