@@ -1,4 +1,4 @@
-import { ArrowLeft, ChevronDown, Sparkles, Star, TrendingUp } from "lucide-react-native";
+import { ArrowLeft, ChevronDown, Flame, Sparkles, Star, TrendingUp, Trophy } from "lucide-react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StatusBar, Text, View } from "react-native";
@@ -72,6 +72,18 @@ export default function DisciplinaDetalhe() {
 
   const subtemasPrincipais = subtemasOrdenados.slice(0, MAX_SUBTEMAS_VISIVEIS);
   const subtemasRestantes = subtemasOrdenados.slice(MAX_SUBTEMAS_VISIVEIS);
+
+  // Resumo de gamificação da disciplina: quantos conceitos já foram
+  // dominados vs. quantos ainda estão em reforço — dá peso visual ao
+  // progresso, além do % de domínio isolado.
+  const { totalConceitos, dominados, emReforco } = useMemo(() => {
+    const todos = macroTema?.subtemas.flatMap((s) => s.conceitos) ?? [];
+    return {
+      totalConceitos: todos.length,
+      dominados: todos.filter((c) => c.status === "dominado").length,
+      emReforco: todos.filter((c) => c.status === "em_reforco").length,
+    };
+  }, [macroTema]);
 
   useEffect(() => {
     StudyContentService.initialize();
@@ -272,9 +284,13 @@ export default function DisciplinaDetalhe() {
           </Text>
         </View>
       ) : (
-        <>
-          {/* Hero — fixo, igual ao original (não rola com a lista) */}
-          <View className="px-6 pb-4">
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 48 }}
+        >
+          {/* Hero — agora rola junto com o resto da tela, em vez de ficar
+              fixo enquanto só a lista de subtemas se move. */}
+          <View className="pb-4">
             <View className="items-center mb-2">
               <View
                 className="w-16 h-16 rounded-full items-center justify-center mb-4"
@@ -295,34 +311,107 @@ export default function DisciplinaDetalhe() {
                 {macroTema.nome}
               </Text>
 
-              <View className="flex-row items-center mb-1">
+              <View className="flex-row items-center mb-4">
                 <TrendingUp size={16} color={PRIMARY_LIGHT} />
                 <Text className="text-sm ml-1.5" style={{ color: MUTED }}>
                   {STATUS_LABEL[macroTema.status]}
                 </Text>
               </View>
+            </View>
 
-              <Text className="text-base font-medium mb-4" style={{ color: PRIMARY_LIGHT }}>
-                {macroTema.progresso}% de domínio
-              </Text>
+            {/* Cartão de domínio — número grande em destaque + barra mais
+                espessa com glow, pra puxar o olho antes de qualquer outra
+                coisa na tela. */}
+            <View
+              className="rounded-[24px] px-5 pt-5 pb-4 mb-3"
+              style={{
+                backgroundColor: SURFACE_SUBTEMA,
+                borderWidth: 1,
+                borderColor: `${PRIMARY}33`,
+              }}
+            >
+              <View className="flex-row items-end justify-between mb-3">
+                <View>
+                  <Text
+                    className="font-extrabold"
+                    style={{ color: PRIMARY_LIGHT, fontSize: 40, lineHeight: 42 }}
+                  >
+                    {macroTema.progresso}%
+                  </Text>
+                  <Text className="text-xs font-medium" style={{ color: MUTED }}>
+                    de domínio da disciplina
+                  </Text>
+                </View>
+              </View>
 
               <View
-                className="w-full h-2 rounded-full overflow-hidden"
+                className="w-full h-3 rounded-full overflow-hidden"
                 style={{ backgroundColor: "rgba(255,255,255,0.08)" }}
               >
                 <View
                   className="h-full rounded-full"
-                  style={{ width: `${macroTema.progresso}%`, backgroundColor: PRIMARY }}
+                  style={{
+                    width: `${macroTema.progresso}%`,
+                    backgroundColor: PRIMARY,
+                    shadowColor: PRIMARY,
+                    shadowOpacity: 0.8,
+                    shadowRadius: 6,
+                    shadowOffset: { width: 0, height: 0 },
+                  }}
                 />
               </View>
             </View>
+
+            {/* Mini-stats de gamificação: quanto já foi dominado vs. quanto
+                ainda precisa de reforço — dois números que antes não
+                apareciam nessa tela. */}
+            {totalConceitos > 0 && (
+              <View className="flex-row" style={{ gap: 12 }}>
+                <View
+                  className="flex-1 flex-row items-center rounded-2xl px-4 py-3"
+                  style={{ backgroundColor: "rgba(34,197,94,0.1)", borderWidth: 1, borderColor: "rgba(34,197,94,0.25)" }}
+                >
+                  <View
+                    className="w-9 h-9 rounded-full items-center justify-center mr-3"
+                    style={{ backgroundColor: "rgba(34,197,94,0.18)" }}
+                  >
+                    <Trophy size={17} color="#22c55e" />
+                  </View>
+                  <View>
+                    <Text className="text-white font-bold" style={{ fontSize: 17 }}>
+                      {dominados}/{totalConceitos}
+                    </Text>
+                    <Text className="text-[11px]" style={{ color: MUTED }}>
+                      dominados
+                    </Text>
+                  </View>
+                </View>
+
+                <View
+                  className="flex-1 flex-row items-center rounded-2xl px-4 py-3"
+                  style={{ backgroundColor: "rgba(240,160,48,0.1)", borderWidth: 1, borderColor: "rgba(240,160,48,0.25)" }}
+                >
+                  <View
+                    className="w-9 h-9 rounded-full items-center justify-center mr-3"
+                    style={{ backgroundColor: "rgba(240,160,48,0.18)" }}
+                  >
+                    <Flame size={17} color="#f0a030" />
+                  </View>
+                  <View>
+                    <Text className="text-white font-bold" style={{ fontSize: 17 }}>
+                      {emReforco}
+                    </Text>
+                    <Text className="text-[11px]" style={{ color: MUTED }}>
+                      em reforço
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            )}
           </View>
 
-          {/* Lista de subtemas + conceitos — só esta parte rola */}
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 48, gap: 20 }}
-          >
+          {/* Lista de subtemas + conceitos — mesma área de rolagem do hero */}
+          <View style={{ gap: 20 }}>
             {macroTema.subtemas_ativos === 0 ? (
               <Text style={{ color: MUTED }} className="text-center mt-10">
                 Nenhum conteúdo ainda. Envie um material pra essa disciplina pra começar.
@@ -386,8 +475,8 @@ export default function DisciplinaDetalhe() {
                 </Pressable>
               </>
             )}
-          </ScrollView>
-        </>
+          </View>
+        </ScrollView>
       )}
     </SafeAreaView>
   );
