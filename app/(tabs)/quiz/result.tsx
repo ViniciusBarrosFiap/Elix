@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { FontAwesome6, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 
 // ---------------------------------------------------------------------------
@@ -87,6 +87,9 @@ export default function RevisaoConcluidaScreen({
   const scaleAnim = useRef(new Animated.Value(0.3)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
+  // ─── Entrada (fade + slide) do card de elixir, um instante depois do ícone ───
+  const elixirAnim = useRef(new Animated.Value(0)).current;
+
   const onFinalizar = () => {
 
     router.replace('/(tabs)/home');
@@ -107,15 +110,26 @@ export default function RevisaoConcluidaScreen({
         useNativeDriver: true,
       }),
     ]).start();
-  }, [scaleAnim, opacityAnim]);
+
+    Animated.timing(elixirAnim, {
+      toValue: 1,
+      duration: 400,
+      delay: 250,
+      useNativeDriver: true,
+    }).start();
+  }, [scaleAnim, opacityAnim, elixirAnim]);
 
   // ─── Lógica de Textos Dinâmicos ───
   const total = acertos + erros;
   const taxaAcerto = total > 0 ? acertos / total : 0;
-  
+
   const subtitleText = taxaAcerto >= 0.8
     ? 'Excelente trabalho! Sua memória está afiada hoje.'
     : 'Revisão concluída. Continue praticando para dominar esses temas.';
+
+  // Elixir ganho nessa revisão: +1 por acerto, mesma regra do backend
+  // (ver submitAnswer.ts — pontuacao sobe 1 a cada resposta certa).
+  const elixirGanho = acertos;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -164,6 +178,41 @@ export default function RevisaoConcluidaScreen({
 
         <Text style={styles.title}>Revisão concluída</Text>
         <Text style={styles.subtitle}>{subtitleText}</Text>
+
+        {/* Elixir coletado nessa revisão */}
+        <Animated.View
+          style={{
+            opacity: elixirAnim,
+            transform: [
+              {
+                translateY: elixirAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [10, 0],
+                }),
+              },
+            ],
+          }}
+        >
+          <LinearGradient
+            colors={['rgba(167,139,250,0.16)', 'rgba(138,43,226,0.06)']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.elixirCard}
+          >
+            <View style={styles.elixirGlow} pointerEvents="none" />
+
+            <View style={styles.elixirIconWrap}>
+              <FontAwesome6 name="droplet" size={20} color="#a78bfa" />
+            </View>
+
+            <View style={{ flex: 1 }}>
+              <Text style={styles.statLabel}>ELIXIR COLETADO</Text>
+              <Text style={styles.elixirValue}>+{elixirGanho}</Text>
+            </View>
+
+            <MaterialCommunityIcons name="water-plus" size={22} color="rgba(167,139,250,0.5)" />
+          </LinearGradient>
+        </Animated.View>
 
         {/* Chips de conteúdos revisados */}
         <Text style={styles.sectionLabel}>CONTEÚDOS REVISADOS</Text>
@@ -349,37 +398,6 @@ const styles = StyleSheet.create({
     color: colors.secondary,
   },
 
-  statsRow: {
-    flexDirection: 'row',
-    gap: 16,
-    marginBottom: 24,
-  },
-  statCard: {
-    flex: 1,
-    padding: 16,
-    borderRadius: radius.xl,
-    backgroundColor: 'rgba(44,44,46,0.20)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
-    overflow: 'hidden',
-  },
-  statGlow: {
-    position: 'absolute',
-    top: -24,
-    right: -24,
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-  },
-  statIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: radius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    marginBottom: 8,
-  },
   statLabel: {
     fontFamily: 'Inter_500Medium',
     fontSize: 10,
@@ -389,10 +407,43 @@ const styles = StyleSheet.create({
     opacity: 0.8,
     marginBottom: 2,
   },
-  statValue: {
+
+  // Card de elixir coletado
+  elixirCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 16,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: 'rgba(167,139,250,0.25)',
+    overflow: 'hidden',
+    marginBottom: 20,
+  },
+  elixirGlow: {
+    position: 'absolute',
+    top: -30,
+    right: -30,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(167,139,250,0.18)',
+  },
+  elixirIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(167,139,250,0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(167,139,250,0.30)',
+  },
+  elixirValue: {
     fontFamily: 'Manrope_800ExtraBold',
-    fontSize: 20,
-    color: colors.onSurface,
+    fontSize: 24,
+    letterSpacing: -0.3,
+    color: '#c9b3ff',
   },
 
   cta: {
