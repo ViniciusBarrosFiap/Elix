@@ -367,9 +367,9 @@ export default function AddContent() {
                     </Text>
                   </View>
                 </View>
-                <Text className="text-sm text-[#a09ba8]">
+                {/* <Text className="text-sm text-[#a09ba8]">
                   A qual disciplina este material pertence?
-                </Text>
+                </Text> */}
               </View>
             </View>
 
@@ -458,9 +458,9 @@ export default function AddContent() {
                   </View>
                 </View>
                 {/* Texto de apoio aumentado para text-sm */}
-                <Text className="text-sm text-[#a09ba8]">
+                {/* <Text className="text-sm text-[#a09ba8]">
                   Adicione tags com os temas que você quer revisar mais.
-                </Text>
+                </Text> */}
               </View>
             </View>
 
@@ -540,9 +540,9 @@ export default function AddContent() {
               <Text className="text-lg font-semibold text-[#f8f8f8] mb-1">
                 Materiais
               </Text>
-              <Text className="text-sm text-[#a09ba8]">
+              {/* <Text className="text-sm text-[#a09ba8]">
                 Adicione arquivos ou importe de outras ferramentas.
-              </Text>
+              </Text> */}
             </View>
           </View>
 
