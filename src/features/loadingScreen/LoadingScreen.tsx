@@ -303,7 +303,7 @@ export default function LoadingScreen({ next, title, subtitle }: Props) {
             {percentage}
           </Text> */}
 
-          <Text
+          {/* <Text
             className="font-bold text-[#eed9ff]"
             style={{
               fontFamily: 'Manrope',
@@ -321,7 +321,7 @@ export default function LoadingScreen({ next, title, subtitle }: Props) {
             style={{ fontFamily: 'Manrope', textAlign: 'center', alignSelf: 'stretch' }}
           >
             {finalSubtitle}
-          </Text>
+          </Text> */}
         </View>
       </Animated.View>
     </View>
