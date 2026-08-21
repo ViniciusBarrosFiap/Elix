@@ -10,6 +10,7 @@ export interface QuizQuestion {
   titulo: string;
   dica: string;
   ja_errou: boolean;
+  nivel: 1 | 2 | 3;
   opcoes: QuizOption[];
   id_gabarito: string;
   justificativa: string;

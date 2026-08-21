@@ -120,6 +120,7 @@ export async function selectTodayQuestions(
       titulo: pergunta.pergunta,
       dica: pergunta.dica,
       ja_errou: conceito.performance.erros > 0,
+      nivel: pergunta.nivel,
       opcoes: (["A", "B", "C", "D"] as const).map((letra) => ({
         id: letra.toLowerCase(),
         rotulo: alternativas[letra],
