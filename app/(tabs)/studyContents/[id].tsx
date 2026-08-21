@@ -1,4 +1,15 @@
-import { ArrowLeft, ChevronDown, Flame, Sparkles, Star, TrendingUp, Trophy } from "lucide-react-native";
+import {
+  ArrowLeft,
+  ChevronDown,
+  CircleDot,
+  Crown,
+  Flame,
+  Sparkles,
+  Star,
+  TrendingUp,
+  Trophy,
+  Zap,
+} from "lucide-react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StatusBar, Text, View } from "react-native";
@@ -17,6 +28,15 @@ const STATUS_CONCEITO_COLOR: Record<StatusConceito, string> = {
   dominado: "#22c55e",
 };
 
+// Ícone por status — reforça a leitura de "conquista" (crown pro dominado,
+// chama pro que precisa de reforço) em vez de só uma bolinha de cor.
+const STATUS_CONCEITO_ICON: Record<StatusConceito, typeof CircleDot> = {
+  novo: CircleDot,
+  em_reforco: Flame,
+  consolidando: TrendingUp,
+  dominado: Crown,
+};
+
 // Tokens do design system "The Cognitive Sanctuary" (mesmos já usados no
 // app — só nomeei para reaproveitar em vários pontos da tela).
 const PRIMARY = "#8a2be2";
@@ -25,7 +45,6 @@ const ON_PRIMARY_CONTAINER = "#eed9ff";
 const SURFACE_DIM = "#080510";
 const SURFACE_SUBTEMA = "#120e1c"; // fundo do container de cada subtema
 const SURFACE_CONCEITO = "#1a1528"; // fundo do card de conceito, um tom acima (fica "por cima" do subtema)
-const SURFACE_BADGE = "#231d28"; // círculo de ícone dentro do card de conceito, mais um tom acima
 const MUTED = "#a09ba8";
 
 // Quantos subtemas ficam sempre visíveis (sem precisar tocar em nada).
@@ -94,86 +113,115 @@ export default function DisciplinaDetalhe() {
   // grupo "mostrar mais").
   const renderListaConceitos = (subtema: SubtemaItem) => (
     <View style={{ gap: 10 }}>
-      {subtema.conceitos.map((conceito) => (
-        <View
-          key={conceito.id}
-          className="rounded-[18px] p-4"
-          style={{
-            backgroundColor: SURFACE_CONCEITO,
-            borderWidth: 1,
-            borderColor: "rgba(255,255,255,0.04)",
-          }}
-        >
-          <View className="flex-row items-center justify-between mb-2">
-            <View className="flex-row items-center flex-1 mr-2">
-              <View
-                className="w-8 h-8 rounded-full items-center justify-center mr-3"
-                style={{ backgroundColor: SURFACE_BADGE }}
-              >
-                {conceito.tag_foco ? (
-                  <Star size={14} color="#f0a030" fill="#f0a030" />
-                ) : (
-                  <View
-                    className="w-2 h-2 rounded-full"
-                    style={{ backgroundColor: STATUS_CONCEITO_COLOR[conceito.status] }}
-                  />
-                )}
-              </View>
-              <Text className="text-white text-sm font-medium flex-1" numberOfLines={2}>
-                {conceito.nome}
-              </Text>
-            </View>
-            <View
-              className="px-2.5 py-1 rounded-full"
-              style={{ backgroundColor: `${STATUS_CONCEITO_COLOR[conceito.status]}22` }}
-            >
-              <Text
-                className="text-[10px] uppercase font-bold tracking-wider"
-                style={{ color: STATUS_CONCEITO_COLOR[conceito.status] }}
-              >
-                {STATUS_CONCEITO_LABEL[conceito.status]}
-              </Text>
-            </View>
-          </View>
+      {subtema.conceitos.map((conceito) => {
+        const cor = STATUS_CONCEITO_COLOR[conceito.status];
+        const StatusIcon = STATUS_CONCEITO_ICON[conceito.status];
+        const dominado = conceito.status === "dominado";
 
-          <View className="flex-row items-center justify-between">
-            <View className="flex-row items-center">
-              <Text className="text-xs mr-2" style={{ color: MUTED }}>
-                Nível
-              </Text>
-              <View className="flex-row items-center" style={{ gap: 4 }}>
-                {[1, 2, 3].map((nivel) => {
-                  const preenchido = nivel <= conceito.nivel_atual;
-                  return (
-                    <View
-                      key={nivel}
-                      style={{
-                        width: 6,
-                        height: 6,
-                        borderRadius: 3,
-                        backgroundColor: preenchido
-                          ? STATUS_CONCEITO_COLOR[conceito.status]
-                          : "rgba(255,255,255,0.12)",
-                        ...(preenchido
-                          ? {
-                              shadowColor: STATUS_CONCEITO_COLOR[conceito.status],
-                              shadowOpacity: 0.7,
-                              shadowRadius: 3,
-                              shadowOffset: { width: 0, height: 0 },
-                            }
-                          : null),
-                      }}
-                    />
-                  );
-                })}
+        return (
+          <View
+            key={conceito.id}
+            className="rounded-[18px] p-4"
+            style={{
+              backgroundColor: SURFACE_CONCEITO,
+              borderWidth: 1,
+              borderColor: dominado ? "rgba(34,197,94,0.35)" : "rgba(255,255,255,0.04)",
+              ...(dominado
+                ? {
+                    shadowColor: "#22c55e",
+                    shadowOpacity: 0.25,
+                    shadowRadius: 12,
+                    shadowOffset: { width: 0, height: 0 },
+                  }
+                : null),
+            }}
+          >
+            <View className="flex-row items-center justify-between mb-2">
+              <View className="flex-row items-center flex-1 mr-2">
+                <View
+                  className="w-8 h-8 rounded-full items-center justify-center mr-3"
+                  style={{
+                    backgroundColor: conceito.tag_foco ? "rgba(240,160,48,0.16)" : `${cor}22`,
+                    borderWidth: 1,
+                    borderColor: conceito.tag_foco ? "rgba(240,160,48,0.4)" : `${cor}44`,
+                  }}
+                >
+                  {conceito.tag_foco ? (
+                    <Star size={14} color="#f0a030" fill="#f0a030" />
+                  ) : (
+                    <StatusIcon size={14} color={cor} />
+                  )}
+                </View>
+                <Text className="text-white text-sm font-medium flex-1" numberOfLines={2}>
+                  {conceito.nome}
+                </Text>
+              </View>
+              <View
+                className="px-2.5 py-1 rounded-full"
+                style={{ backgroundColor: `${cor}22` }}
+              >
+                <Text
+                  className="text-[10px] uppercase font-bold tracking-wider"
+                  style={{ color: cor }}
+                >
+                  {STATUS_CONCEITO_LABEL[conceito.status]}
+                </Text>
               </View>
             </View>
-            <Text className="text-xs" style={{ color: MUTED }}>
-              {conceito.performance.acertos} acertos · {conceito.performance.erros} erros
-            </Text>
+
+            <View className="flex-row items-center justify-between">
+              {/* Nível — mesmo vocabulário visual (raio + pips) do chip de nível do quiz */}
+              <View className="flex-row items-center" style={{ gap: 5 }}>
+                <Zap size={11} color={cor} fill={cor} />
+                <Text className="text-[11px] font-bold" style={{ color: cor }}>
+                  Nv.{conceito.nivel_atual}
+                </Text>
+                <View className="flex-row items-center" style={{ gap: 3, marginLeft: 2 }}>
+                  {[1, 2, 3].map((nivel) => {
+                    const preenchido = nivel <= conceito.nivel_atual;
+                    return (
+                      <View
+                        key={nivel}
+                        style={{
+                          width: 14,
+                          height: 5,
+                          borderRadius: 2.5,
+                          backgroundColor: preenchido ? cor : "rgba(255,255,255,0.12)",
+                          ...(preenchido
+                            ? {
+                                shadowColor: cor,
+                                shadowOpacity: 0.7,
+                                shadowRadius: 3,
+                                shadowOffset: { width: 0, height: 0 },
+                              }
+                            : null),
+                        }}
+                      />
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* Placar de acertos/erros — cor em vez de cinza neutro, pra ler
+                  como pontuação e não como estatística morta. */}
+              <View className="flex-row items-center" style={{ gap: 8 }}>
+                <View className="flex-row items-center" style={{ gap: 3 }}>
+                  <View style={{ width: 5, height: 5, borderRadius: 2.5, backgroundColor: "#22c55e" }} />
+                  <Text className="text-[11px] font-semibold" style={{ color: "#22c55e" }}>
+                    {conceito.performance.acertos}
+                  </Text>
+                </View>
+                <View className="flex-row items-center" style={{ gap: 3 }}>
+                  <View style={{ width: 5, height: 5, borderRadius: 2.5, backgroundColor: "#ff6b6b" }} />
+                  <Text className="text-[11px] font-semibold" style={{ color: "#ff6b6b" }}>
+                    {conceito.performance.erros}
+                  </Text>
+                </View>
+              </View>
+            </View>
           </View>
-        </View>
-      ))}
+        );
+      })}
     </View>
   );
 
