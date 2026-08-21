@@ -45,13 +45,9 @@ export default function DisciplineSelectionScreen() {
                 disciplinas: disciplines.map(d => d.name),
                 primeiroAcesso: false,
             });
-            router.replace({
-                pathname: "/loadingScreen",
-                params: {
-                    next: "/home",
-                    title: "Processando informações...",
-                }
-            })
+            // Último passo do onboarding: escolher o horário do lembrete diário
+            // (tela /reminder cuida da permissão de notificação e do agendamento).
+            router.replace("/reminder");
         } catch {
             Alert.alert("Erro", "Não foi possível salvar suas disciplinas. Tente novamente.");
         }
