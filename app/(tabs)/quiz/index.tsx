@@ -1,5 +1,5 @@
 import { Feather } from '@expo/vector-icons';
-import { CheckCircle2 } from 'lucide-react-native';
+import { CheckCircle2, Zap } from 'lucide-react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import '@/global.css'
@@ -322,8 +322,23 @@ export default function QuizScreen() {
           contentContainerStyle={styles.scroll}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.chip}>
-            <Text style={styles.chipText}>{currentQuestion.disciplina.toUpperCase()}</Text>
+          <View style={styles.chipsRow}>
+            <View style={[styles.chip, { marginBottom: 0 }]}>
+              <Text style={styles.chipText}>{currentQuestion.disciplina.toUpperCase()}</Text>
+            </View>
+
+            <View style={styles.levelChip}>
+              <Zap size={11} color={C.primaryContainer} fill={C.primaryContainer} />
+              <Text style={styles.levelChipText}>NÍVEL {currentQuestion.nivel}</Text>
+              
+            </View>
+
+            {currentQuestion.ja_errou && (
+              <View style={styles.reforcoChip}>
+                <Feather name="alert-circle" size={10} color="#f0a030" />
+                <Text style={styles.reforcoChipText}>REFORÇO</Text>
+              </View>
+            )}
           </View>
 
           <Text style={styles.question}>{currentQuestion.titulo}</Text>
@@ -521,6 +536,49 @@ const styles = StyleSheet.create({
     fontSize: 10,
     letterSpacing: 0.8,
     color: C.onSecondaryContainer,
+  },
+  chipsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 20,
+  },
+  levelChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 5,
+    backgroundColor: 'rgba(138,43,226,0.14)',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(138,43,226,0.35)',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+  },
+  levelChipText: {
+    fontFamily: 'Manrope_700Bold',
+    fontSize: 10,
+    letterSpacing: 0.8,
+    color: C.primary,
+  },
+  reforcoChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 4,
+    backgroundColor: 'rgba(240,160,48,0.14)',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(240,160,48,0.35)',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+  },
+  reforcoChipText: {
+    fontFamily: 'Manrope_700Bold',
+    fontSize: 10,
+    letterSpacing: 0.8,
+    color: '#f0a030',
   },
   question: {
     fontFamily: 'Manrope_800ExtraBold',
