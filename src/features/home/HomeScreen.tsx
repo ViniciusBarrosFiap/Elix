@@ -15,6 +15,7 @@ import UploadButton from "./components/UploadButton";
 import { StudyContentService } from "@/src/services/studyContent/studyContent.service";
 import { useStudyContentStore } from "@/src/store/studyContentStore";
 import { useUserDataStore } from "@/src/store/userDataStore";
+import { UserService } from "@/src/services/user/user.service";
 import { QuizQuestionsService } from "@/src/services/quiz/quiz.service";
 import { BlurView } from "expo-blur";
 
@@ -75,11 +76,14 @@ export default function HomeScreen() {
   const studyContentData = useStudyContentStore((state) => state.data);
   const userData = useUserDataStore((state) => state.data);
 
-  // Recarrega quiz/conteúdo toda vez que a Home ganha foco — sem isso, o card
-  // de dose e os conteúdos ficam presos no snapshot buscado uma única vez no
-  // boot do app, mesmo depois de um upload gerar perguntas novas.
+  // Recarrega usuário/quiz/conteúdo toda vez que a Home ganha foco — sem isso,
+  // o card de dose, os conteúdos e o elixir/streak do usuário ficam presos no
+  // snapshot buscado uma única vez no boot do app (ex: elixir só atualizava
+  // depois de fechar e reabrir o app, já que o quiz some da tela sem passar
+  // por um refresh do usuário).
   useFocusEffect(
     useCallback(() => {
+      UserService.initialize();
       QuizQuestionsService.initialize();
       StudyContentService.initialize();
     }, [])
