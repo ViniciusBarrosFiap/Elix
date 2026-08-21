@@ -48,6 +48,12 @@ function calcularElixir(nivel: 1 | 2 | 3, acertou: boolean): number {
   return acertou ? ELIXIR_POR_NIVEL[nivel] : ELIXIR_ERRO;
 }
 
+// Quantos segundos o aluno é obrigado a ficar na justificativa depois de
+// errar, antes de poder fechar (swipe ou toque fora) — só se aplica quando
+// o Bottom Sheet abre sozinho por causa do erro, não quando ele abre por
+// vontade própria (botão "?").
+const COOLDOWN_JUSTIFICATIVA_SEGUNDOS = 8;
+
 export default function QuizScreen() {
   const { macroTemaId } = useLocalSearchParams<{ macroTemaId?: string }>();
 
@@ -59,6 +65,37 @@ export default function QuizScreen() {
     // 2. Define as alturas que o Bottom Sheet pode assumir (ex: 25% e 50% da tela)
     const snapPoints = useMemo(() => ["60%"], ["80%"]);
 
+  // Cooldown que trava o fechamento da justificativa quando ela abre sozinha
+  // por causa de um erro — força o aluno a de fato ler antes de seguir.
+  const [cooldownAtivo, setCooldownAtivo] = useState(false);
+  const [cooldownRestante, setCooldownRestante] = useState(0);
+  const cooldownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  function iniciarCooldownJustificativa() {
+    if (cooldownIntervalRef.current) clearInterval(cooldownIntervalRef.current);
+
+    setCooldownAtivo(true);
+    setCooldownRestante(COOLDOWN_JUSTIFICATIVA_SEGUNDOS);
+
+    cooldownIntervalRef.current = setInterval(() => {
+      setCooldownRestante((prev) => {
+        if (prev <= 1) {
+          if (cooldownIntervalRef.current) clearInterval(cooldownIntervalRef.current);
+          cooldownIntervalRef.current = null;
+          setCooldownAtivo(false);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (cooldownIntervalRef.current) clearInterval(cooldownIntervalRef.current);
+    };
+  }, []);
+
   const renderBackdrop = useCallback(
       (props: any) => (
         <BottomSheetBackdrop
@@ -66,10 +103,10 @@ export default function QuizScreen() {
         opacity={0.8}
         disappearsOnIndex={-1} // Fica invisível quando o modal fecha
         appearsOnIndex={0} // Aparece assim que o modal abre no primeiro snap point
-        pressBehavior="close" // Garante que o toque fechará o modal
+        pressBehavior={cooldownAtivo ? "none" : "close"} // Trava o toque fora durante o cooldown
         />
       ),
-      [],
+      [cooldownAtivo],
     );
   
       const renderBackground = useCallback(
@@ -148,8 +185,10 @@ export default function QuizScreen() {
       } else {
         setErros((prev) => prev + 1);
         // Se a resposta selecionada for diferente do gabarito (resposta errada),
-        // abre o Bottom Sheet automaticamente.
+        // abre o Bottom Sheet automaticamente e trava o fechamento por alguns
+        // segundos — sem isso, dava pra bater o dedo e sair sem ler nada.
         bottomSheetModalRef.current?.present();
+        iniciarCooldownJustificativa();
       }
 
       // Atualiza o progresso real do conceito no backend (nível, próxima
@@ -456,22 +495,37 @@ export default function QuizScreen() {
   ref={bottomSheetModalRef}
   index={0} // abre no primeiro ponto
   snapPoints={snapPoints}
+  enablePanDownToClose={!cooldownAtivo} // trava o swipe-to-close durante o cooldown
   backgroundComponent={renderBackground}
   backdropComponent={renderBackdrop}
-  handleIndicatorStyle={{ backgroundColor: '#a855f7', width: 40 }}
+  handleIndicatorStyle={{ backgroundColor: '#a855f7', width: 40, opacity: cooldownAtivo ? 0.3 : 1 }}
 >
   <BottomSheetView style={{ flex: 1, paddingHorizontal: 24, paddingTop: 8, paddingBottom: 24 }}>
     {/* Cabeçalho com ícone + título */}
-    <View className="flex-row items-center mb-4">
-      <View className="w-8 h-8 rounded-full bg-[#a855f7]/20 justify-center items-center mr-3">
-        <Text className="text-base">💡</Text>
+    <View className="flex-row items-center justify-between mb-4">
+      <View className="flex-row items-center">
+        <View className="w-8 h-8 rounded-full bg-[#a855f7]/20 justify-center items-center mr-3">
+          <Text className="text-base">💡</Text>
+        </View>
+        <Text
+          style={{ fontFamily: 'Manrope_700Bold' }}
+          className="text-lg text-[#a855f7]"
+        >
+          Justificativa
+        </Text>
       </View>
-      <Text
-        style={{ fontFamily: 'Manrope_700Bold' }}
-        className="text-lg text-[#a855f7]"
-      >
-        Justificativa
-      </Text>
+
+      {cooldownAtivo && (
+        <View
+          className="flex-row items-center rounded-full px-3 py-1.5"
+          style={{ backgroundColor: 'rgba(240,160,48,0.14)', borderWidth: 1, borderColor: 'rgba(240,160,48,0.35)', gap: 5 }}
+        >
+          <Feather name="clock" size={11} color="#f0a030" />
+          <Text style={{ fontFamily: 'Manrope_700Bold', fontSize: 11, color: '#f0a030' }}>
+            {cooldownRestante}s
+          </Text>
+        </View>
+      )}
     </View>
 
     {/* Resposta correta em destaque */}
