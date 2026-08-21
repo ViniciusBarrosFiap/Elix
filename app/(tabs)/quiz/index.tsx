@@ -38,6 +38,16 @@ const C = {
   correct:                '#00c896',
 };
 
+// Espelha calcularElixir() do backend (server/src/services/quiz/submitAnswer.ts)
+// pra dar feedback local imediato sem depender da resposta da rede — o
+// registro que vale de verdade continua sendo o do servidor.
+const ELIXIR_POR_NIVEL: Record<1 | 2 | 3, number> = { 1: 30, 2: 50, 3: 100 };
+const ELIXIR_ERRO = 10;
+
+function calcularElixir(nivel: 1 | 2 | 3, acertou: boolean): number {
+  return acertou ? ELIXIR_POR_NIVEL[nivel] : ELIXIR_ERRO;
+}
+
 export default function QuizScreen() {
   const { macroTemaId } = useLocalSearchParams<{ macroTemaId?: string }>();
 
@@ -89,6 +99,7 @@ export default function QuizScreen() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [acertos, setAcertos] = useState(0);
   const [erros, setErros] = useState(0);
+  const [elixirTotal, setElixirTotal] = useState(0);
 
   // ─── Animação do Líquido ───
   const liquidAnim = useRef(new Animated.Value(0)).current;
@@ -130,6 +141,8 @@ export default function QuizScreen() {
       setConfirmed(true);
 
       const acertou = selected === currentQuestion.id_gabarito;
+      setElixirTotal((prev) => prev + calcularElixir(currentQuestion.nivel, acertou));
+
       if (acertou) {
         setAcertos((prev) => prev + 1);
       } else {
@@ -157,6 +170,7 @@ export default function QuizScreen() {
         params: {
           acertos: String(acertos),
           erros: String(erros),
+          elixir: String(elixirTotal),
           categorias: JSON.stringify(categorias),
         },
       });

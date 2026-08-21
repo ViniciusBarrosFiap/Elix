@@ -9,6 +9,7 @@ interface SubmitAnswerInput {
 
 interface SubmitAnswerResult {
   acertou: boolean;
+  elixir_ganho: number;
   conceito: {
     id: string;
     nivel_atual: 1 | 2 | 3;
@@ -21,6 +22,16 @@ function addDaysISO(base: Date, dias: number): string {
   const d = new Date(base);
   d.setDate(d.getDate() + dias);
   return d.toISOString().slice(0, 10);
+}
+
+const ELIXIR_POR_NIVEL: Record<1 | 2 | 3, number> = { 1: 30, 2: 50, 3: 100 };
+const ELIXIR_ERRO = 10;
+
+/** Recompensa em elixir: acerto escala com o nível da pergunta (mais difícil, mais
+ *  elixir); erro sempre rende um consolo fixo, pra manter o engajamento mesmo
+ *  quando o aluno erra. */
+function calcularElixir(nivel: 1 | 2 | 3, acertou: boolean): number {
+  return acertou ? ELIXIR_POR_NIVEL[nivel] : ELIXIR_ERRO;
 }
 
 /**
@@ -37,7 +48,7 @@ export async function submitAnswer({
     .from("perguntas")
     .select(
       `
-      id, resposta,
+      id, resposta, nivel,
       conceitos!inner (
         id, nivel_atual, status, performance,
         sub_temas!inner ( macro_temas!inner ( user_id ) )
@@ -58,6 +69,7 @@ export async function submitAnswer({
   }
 
   const acertou = respostaEscolhida === pergunta.resposta;
+  const elixirGanho = calcularElixir(pergunta.nivel, acertou);
   const performanceAtual = conceito.performance ?? { vezes_revisado: 0, acertos: 0, erros: 0 };
   const novaPerformance = {
     vezes_revisado: performanceAtual.vezes_revisado + 1,
@@ -98,8 +110,8 @@ export async function submitAnswer({
     throw new HttpError(500, "Falha ao atualizar o progresso do conceito.");
   }
 
-  // Elixir (+1 por acerto) e streak (dias consecutivos com pelo menos 1 resposta,
-  // acertando ou errando — mede hábito de revisar, não desempenho).
+  // Elixir (ver calcularElixir) e streak (dias consecutivos com pelo menos 1
+  // resposta, acertando ou errando — mede hábito de revisar, não desempenho).
   const { data: userRow } = await supabase
     .from("users")
     .select("pontuacao, streak, last_review_date")
@@ -122,7 +134,7 @@ export async function submitAnswer({
     await supabase
       .from("users")
       .update({
-        pontuacao: (userRow.pontuacao ?? 0) + (acertou ? 1 : 0),
+        pontuacao: (userRow.pontuacao ?? 0) + elixirGanho,
         streak: novoStreak,
         last_review_date: hojeISO,
       })
@@ -131,6 +143,7 @@ export async function submitAnswer({
 
   return {
     acertou,
+    elixir_ganho: elixirGanho,
     conceito: {
       id: conceito.id,
       nivel_atual: novoNivel,

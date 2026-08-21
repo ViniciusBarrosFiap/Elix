@@ -58,22 +58,26 @@ const FALLBACK_TOPICS: Topic[] = [
 type Props = {
   acertos?: number;
   erros?: number;
+  elixir?: number;
 };
 
 type ResultParams = {
   acertos?: string;
   erros?: string;
+  elixir?: string;
   categorias?: string;
 };
 
 export default function RevisaoConcluidaScreen({
   acertos: acertosProp,
   erros: errosProp,
+  elixir: elixirProp,
 }: Props) {
   const params = useLocalSearchParams<ResultParams>();
 
   const acertos = acertosProp ?? (params.acertos ? Number(params.acertos) : 4);
   const erros = errosProp ?? (params.erros ? Number(params.erros) : 1);
+  const elixirGanho = elixirProp ?? (params.elixir ? Number(params.elixir) : acertos * 30);
 
   const REVIEWED_TOPICS: Topic[] = params.categorias
     ? (JSON.parse(params.categorias) as string[]).map((categoria) => ({
@@ -126,10 +130,6 @@ export default function RevisaoConcluidaScreen({
   const subtitleText = taxaAcerto >= 0.8
     ? 'Excelente trabalho! Sua memória está afiada hoje.'
     : 'Revisão concluída. Continue praticando para dominar esses temas.';
-
-  // Elixir ganho nessa revisão: +1 por acerto, mesma regra do backend
-  // (ver submitAnswer.ts — pontuacao sobe 1 a cada resposta certa).
-  const elixirGanho = acertos;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>

@@ -3,6 +3,7 @@ import { QuizQuestionsData } from "@/src/types/quizQuestions";
 
 export interface SubmitAnswerResult {
   acertou: boolean;
+  elixir_ganho: number;
   conceito: {
     id: string;
     nivel_atual: 1 | 2 | 3;
