@@ -124,6 +124,14 @@ export default function ReminderScreen() {
   async function handleDefinirLembrete() {
     setIsSaving(true);
     try {
+      if (!NotificationsService.isAvailable) {
+        Alert.alert(
+          'Lembretes indisponíveis neste modo',
+          'Notificações não funcionam rodando pelo Expo Go — isso é uma limitação do próprio Expo, não um erro seu. Você pode seguir sem o lembrete por enquanto.'
+        );
+        return;
+      }
+
       const permitido = await NotificationsService.requestPermission();
       if (!permitido) {
         Alert.alert(
