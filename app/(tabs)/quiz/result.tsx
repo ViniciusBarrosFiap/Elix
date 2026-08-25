@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   Pressable,
   StatusBar,
   Platform,
@@ -41,20 +40,6 @@ const radius = {
   full: 9999,
 };
 
-// ---------------------------------------------------------------------------
-// Dados de conteúdo
-// ---------------------------------------------------------------------------
-type Topic = {
-  key: string;
-  label: string;
-  icon: keyof typeof MaterialCommunityIcons.glyphMap;
-};
-
-// Fallback usado só quando a tela é aberta sem os parâmetros reais da revisão.
-const FALLBACK_TOPICS: Topic[] = [
-  { key: 'geral', label: 'Revisão diária', icon: 'book-open-variant' },
-];
-
 type Props = {
   acertos?: number;
   erros?: number;
@@ -65,7 +50,6 @@ type ResultParams = {
   acertos?: string;
   erros?: string;
   elixir?: string;
-  categorias?: string;
 };
 
 export default function RevisaoConcluidaScreen({
@@ -78,14 +62,6 @@ export default function RevisaoConcluidaScreen({
   const acertos = acertosProp ?? (params.acertos ? Number(params.acertos) : 4);
   const erros = errosProp ?? (params.erros ? Number(params.erros) : 1);
   const elixirGanho = elixirProp ?? (params.elixir ? Number(params.elixir) : acertos * 30);
-
-  const REVIEWED_TOPICS: Topic[] = params.categorias
-    ? (JSON.parse(params.categorias) as string[]).map((categoria) => ({
-        key: categoria,
-        label: categoria,
-        icon: 'book-open-variant',
-      }))
-    : FALLBACK_TOPICS;
 
   // ─── Animação de Pulo (Spring) do Ícone ───
   const scaleAnim = useRef(new Animated.Value(0.3)).current;
@@ -214,24 +190,6 @@ export default function RevisaoConcluidaScreen({
           </LinearGradient>
         </Animated.View>
 
-        {/* Chips de conteúdos revisados */}
-        <Text style={styles.sectionLabel}>CONTEÚDOS REVISADOS</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.chipsRow}
-          style={styles.chipsScroll}
-        >
-          {REVIEWED_TOPICS.map((topic) => (
-            <View key={topic.key} style={styles.chip}>
-              <View style={styles.chipIconWrap}>
-                <MaterialCommunityIcons name={topic.icon} size={12} color={colors.primary} />
-              </View>
-              <Text style={styles.chipLabel}>{topic.label}</Text>
-            </View>
-          ))}
-        </ScrollView>
-
         {/* Único CTA (Removido o X superior) */}
         <Pressable onPress={onFinalizar} style={({ pressed }) => [pressed && styles.ctaPressed]}>
           <LinearGradient
@@ -354,48 +312,6 @@ const styles = StyleSheet.create({
     color: colors.onSurfaceVariant,
     opacity: 0.9,
     marginBottom: 20,
-  },
-
-  sectionLabel: {
-    fontFamily: 'Inter_500Medium',
-    fontSize: 10,
-    letterSpacing: 2,
-    textTransform: 'uppercase',
-    color: colors.onSurfaceVariant,
-    opacity: 0.6,
-    marginBottom: 12,
-  },
-  chipsScroll: {
-    marginHorizontal: -24,
-    marginBottom: 20,
-  },
-  chipsRow: {
-    paddingHorizontal: 24,
-    gap: 12,
-  },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: radius.lg,
-    backgroundColor: 'rgba(28,28,30,0.5)',
-    borderWidth: 1,
-    borderColor: 'rgba(58,58,60,0.5)',
-  },
-  chipIconWrap: {
-    width: 20,
-    height: 20,
-    borderRadius: radius.full,
-    backgroundColor: 'rgba(138,43,226,0.20)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  chipLabel: {
-    fontFamily: 'Inter_500Medium',
-    fontSize: 12,
-    color: colors.secondary,
   },
 
   statLabel: {
