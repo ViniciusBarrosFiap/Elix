@@ -20,6 +20,7 @@ import { useQuizQuestionsStore } from '@/src/store/quizQuestionsStore';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BottomSheetBackdrop, BottomSheetModal, BottomSheetView } from '@gorhom/bottom-sheet';
 import { BlurView } from 'expo-blur';
+import ElixirFlaskRN, { ElixirFlaskHandle } from '@/src/components/ElixirFlaskRN';
 
 // ─── Design Tokens 
 const C = {
@@ -128,6 +129,15 @@ export default function QuizScreen() {
   const quizQuestions = quizData?.questoes ?? [];
   const amountOfQuestions = quizQuestions.length;
 
+  // Frasco de elixir do header: enche em direção ao máximo possível na
+  // sessão (soma do elixir de acerto de cada pergunta, por nível) — só bate
+  // 100% se o aluno acertar tudo.
+  const flaskRef = useRef<ElixirFlaskHandle>(null);
+  const elixirMaximoSessao = useMemo(
+    () => quizQuestions.reduce((soma, q) => soma + ELIXIR_POR_NIVEL[q.nivel], 0),
+    [quizQuestions]
+  );
+
   const { width } = useWindowDimensions();
   const router = useRouter();
 
@@ -178,7 +188,9 @@ export default function QuizScreen() {
       setConfirmed(true);
 
       const acertou = selected === currentQuestion.id_gabarito;
-      setElixirTotal((prev) => prev + calcularElixir(currentQuestion.nivel, acertou));
+      const ganho = calcularElixir(currentQuestion.nivel, acertou);
+      setElixirTotal((prev) => prev + ganho);
+      flaskRef.current?.gain(ganho, `+${ganho} XP`);
 
       if (acertou) {
         setAcertos((prev) => prev + 1);
@@ -203,14 +215,12 @@ export default function QuizScreen() {
     }
 
     if (isLastQuestion) {
-      const categorias = [...new Set(quizQuestions.map((q) => q.categoria))];
       router.push({
         pathname: '/(tabs)/quiz/result',
         params: {
           acertos: String(acertos),
           erros: String(erros),
           elixir: String(elixirTotal),
-          categorias: JSON.stringify(categorias),
         },
       });
       return;
@@ -367,7 +377,10 @@ export default function QuizScreen() {
         >
           {currentQuestionIndex + 1}/{quizQuestions.length}
         </Text>
-       
+
+        {/* Frasco de elixir da sessão — enche a cada resposta (acerto sobe
+            mais que erro), com gotas + "+XP" flutuando no momento do ganho. */}
+        <ElixirFlaskRN ref={flaskRef} totalUnits={elixirMaximoSessao} size={36} />
       </View>
 
       <View style={{ flex: 1 }}>
