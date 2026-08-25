@@ -75,7 +75,7 @@ const DoseCard = ({ onPress }: { onPress: () => void }) => {
               className="font-bold text-white"
               style={{ fontSize: titleSize, lineHeight: titleSize * 1.25, marginBottom: 6 }}
             >
-              Sua dose de hoje{"\n"}está pronta!
+              Revisão de Hoje
             </Text>
 
             {/* Subtitle */}
