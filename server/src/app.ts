@@ -7,6 +7,7 @@ import { macroTemasRouter } from "./routes/macroTemas.routes";
 import { materialsRouter } from "./routes/materials.routes";
 import { studyContentRouter } from "./routes/studyContent.routes";
 import { quizRouter } from "./routes/quiz.routes";
+import { notionRouter } from "./routes/notion.routes";
 
 export const app = express();
 
@@ -20,6 +21,7 @@ app.use("/api/macro-temas", macroTemasRouter);
 app.use("/api/materials", materialsRouter);
 app.use("/api/study-content", studyContentRouter);
 app.use("/api/quiz", quizRouter);
+app.use("/api/notion", notionRouter);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

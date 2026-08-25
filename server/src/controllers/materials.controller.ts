@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { HttpError } from "../middlewares/errorHandler";
-import { processUpload, processYoutubeLink } from "../services/materials.service";
+import { processUpload, processYoutubeLink, processNotionPage } from "../services/materials.service";
 
 function parseTags(raw: unknown): string[] {
   if (raw === undefined || raw === null || raw === "") return [];
@@ -71,6 +71,33 @@ export async function uploadYoutubeMaterial(req: Request, res: Response) {
     macroTemaId,
     tags,
     url,
+  });
+
+  return res.status(200).json(result);
+}
+
+// POST /api/materials/notion — importa uma página do Notion (já conectado
+// via OAuth, ver notion.controller.ts) + geração síncrona.
+export async function uploadNotionMaterial(req: Request, res: Response) {
+  const pageId = (req.body.page_id as string | undefined)?.trim();
+  if (!pageId) {
+    throw new HttpError(400, "Informe a página do Notion (page_id).");
+  }
+
+  const macroTemaId = req.body.macro_tema_id as string | undefined;
+  if (!macroTemaId) {
+    throw new HttpError(400, "Selecione uma disciplina (macro_tema_id) antes de importar a página.");
+  }
+
+  const tags = parseTags(req.body.tags);
+  const pageTitle = (req.body.page_title as string | undefined)?.trim() ?? "";
+
+  const result = await processNotionPage({
+    userId: req.user!.id,
+    macroTemaId,
+    tags,
+    pageId,
+    pageTitle,
   });
 
   return res.status(200).json(result);

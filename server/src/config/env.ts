@@ -10,6 +10,18 @@ const envSchema = z.object({
   GEMINI_MODEL: z.string().min(1).default("gemini-2.0-flash"),
   MAX_INPUT_CHARS: z.coerce.number().default(80000),
   MAX_UPLOAD_MB: z.coerce.number().default(15),
+
+  // Integração Notion (OAuth 2.0) — opcionais: sem elas o server sobe normal,
+  // só as rotas /api/notion respondem 501. Criada em notion.so/my-integrations
+  // como integração PÚBLICA. NOTION_REDIRECT_URI precisa ser a URL pública
+  // deste server (ex: https://seu-deploy.vercel.app/api/notion/callback) e
+  // bater exatamente com o que está cadastrado na integração.
+  NOTION_CLIENT_ID: z.string().min(1).optional(),
+  NOTION_CLIENT_SECRET: z.string().min(1).optional(),
+  NOTION_REDIRECT_URI: z.string().url().optional(),
+  // Deep link pro app depois que o OAuth termina — precisa bater com o
+  // "scheme" do app.json (expo). Default assume o scheme "elix" já usado.
+  APP_DEEP_LINK_URL: z.string().min(1).default("elix://notion-connected"),
 });
 
 const parsed = envSchema.safeParse(process.env);

@@ -3,6 +3,8 @@ import { env } from "../config/env";
 import { HttpError } from "../middlewares/errorHandler";
 import { detectKind, extractText } from "./ingestion/extractText";
 import { fetchYoutubeTranscript } from "./ingestion/fetchYoutubeTranscript";
+import { fetchNotionPageText } from "./ingestion/fetchNotionPageText";
+import { getAccessToken as getNotionAccessToken } from "./notion/notion.service";
 import { generateStudyContent } from "./ingestion/generateStudyContent";
 import { persistStudyContent } from "./ingestion/persistStudyContent";
 import { assertMacroTemaBelongsToUser } from "./macroTemas.service";
@@ -27,6 +29,14 @@ interface ProcessYoutubeLinkInput {
   macroTemaId: string;
   tags: string[];
   url: string;
+}
+
+interface ProcessNotionPageInput {
+  userId: string;
+  macroTemaId: string;
+  tags: string[];
+  pageId: string;
+  pageTitle: string;
 }
 
 interface ProcessMaterialResult {
@@ -144,6 +154,46 @@ export async function processUpload({
     return await processExtractedText({ userId, macroTemaId, materialId, disciplinaNome, tags, texto: fullText });
   } catch (err) {
     const mensagem = err instanceof HttpError ? err.message : "Falha inesperada ao processar o material.";
+    await markMaterialAsErrored(materialId, mensagem);
+    throw err instanceof HttpError ? err : new HttpError(500, mensagem);
+  }
+}
+
+export async function processNotionPage({
+  userId,
+  macroTemaId,
+  tags,
+  pageId,
+  pageTitle,
+}: ProcessNotionPageInput): Promise<ProcessMaterialResult> {
+  await assertMacroTemaBelongsToUser(macroTemaId, userId);
+  const disciplinaNome = await getMacroTemaNome(macroTemaId);
+
+  const { data: material, error: insertError } = await supabase
+    .from("materials")
+    .insert({
+      user_id: userId,
+      macro_tema_id: macroTemaId,
+      nome_arquivo: pageTitle || "Página do Notion",
+      mime_type: "application/vnd.notion.page",
+      tags,
+      status: "processando",
+    })
+    .select("id")
+    .single();
+
+  if (insertError || !material) {
+    throw new HttpError(500, "Falha ao registrar o material enviado.");
+  }
+
+  const materialId = material.id as string;
+
+  try {
+    const accessToken = await getNotionAccessToken(userId);
+    const texto = await fetchNotionPageText(accessToken, pageId);
+    return await processExtractedText({ userId, macroTemaId, materialId, disciplinaNome, tags, texto });
+  } catch (err) {
+    const mensagem = err instanceof HttpError ? err.message : "Falha inesperada ao processar a página do Notion.";
     await markMaterialAsErrored(materialId, mensagem);
     throw err instanceof HttpError ? err : new HttpError(500, mensagem);
   }
