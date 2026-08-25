@@ -37,6 +37,31 @@ const STATUS_CONCEITO_ICON: Record<StatusConceito, typeof CircleDot> = {
   dominado: Crown,
 };
 
+// Status "de verdade" do subtema — derivado dos conceitos que ele tem
+// (subtema.status vindo da API é estático, nunca muda, ver types/studyContent.ts).
+// Três estados por precedência: 100% dominado > ninguém tocou ainda > todo o
+// resto (misto/em progresso), o que cobre exatamente o que se quer enxergar
+// de relance: "já terminei", "nem comecei" ou "tô no meio disso".
+type SubtemaProgressStatus = "dominado" | "em_reforco" | "iniciando";
+
+const SUBTEMA_STATUS_LABEL: Record<SubtemaProgressStatus, string> = {
+  dominado: "Dominado",
+  em_reforco: "Em reforço",
+  iniciando: "Iniciando",
+};
+
+const SUBTEMA_STATUS_COLOR: Record<SubtemaProgressStatus, string> = {
+  dominado: "#22c55e",
+  em_reforco: "#f0a030",
+  iniciando: "#60a5fa",
+};
+
+const SUBTEMA_STATUS_ICON: Record<SubtemaProgressStatus, typeof CircleDot> = {
+  dominado: Crown,
+  em_reforco: Flame,
+  iniciando: Sparkles,
+};
+
 // Tokens do design system "The Cognitive Sanctuary" (mesmos já usados no
 // app — só nomeei para reaproveitar em vários pontos da tela).
 const PRIMARY = "#8a2be2";
@@ -78,6 +103,21 @@ export default function DisciplinaDetalhe() {
   // Quantos conceitos de um subtema têm pelo menos 1 erro registrado.
   const contarConceitosComErro = (subtema: SubtemaItem) =>
     subtema.conceitos.filter((c) => c.performance.erros > 0).length;
+
+  // Classifica o subtema com base nos conceitos: dominado (100% dominados),
+  // iniciando (nenhum conceito foi revisado ainda) ou em reforço (o meio-termo
+  // — já tem prática rolando mas ainda não terminou).
+  const classificarSubtema = (subtema: SubtemaItem): SubtemaProgressStatus => {
+    const conceitos = subtema.conceitos;
+    const total = conceitos.length;
+
+    if (total === 0) return "iniciando";
+
+    const dominados = conceitos.filter((c) => c.status === "dominado").length;
+    const nuncaRevisados = conceitos.filter((c) => c.performance.vezes_revisado === 0).length;
+
+    return dominados === total ? "dominado" : nuncaRevisados === total ? "iniciando" : "em_reforco";
+  };
 
   // Subtemas ordenados do que mais tem conceitos com erro para o que
   // menos tem. Os 4 primeiros aparecem sempre visíveis; o resto fica
@@ -225,17 +265,16 @@ export default function DisciplinaDetalhe() {
     </View>
   );
 
-  // Cabeçalho "cheio" — usado em todos os subtemas visíveis. Título em
-  // destaque + linha de status/contagem embaixo, com bolinhas mostrando a
-  // média do nível dos conceitos daquele subtema. Tudo dentro de um
-  // container com fundo próprio (um tom acima do fundo da tela).
+  // Cabeçalho "cheio" — usado em todos os subtemas visíveis. Ícone de status
+  // (derivado dos conceitos, não do campo estático da API) + pill colorida +
+  // barra de progresso média, num vocabulário visual que já existe nos
+  // conceitos e no hero da disciplina — o mesmo "idioma" em três escalas.
   const renderSubtemaPrincipal = (subtema: SubtemaItem) => {
     const aberto = subtemasAbertos.has(subtema.id);
-
-    const mediaNivel = subtema.conceitos.length
-      ? subtema.conceitos.reduce((soma, c) => soma + c.nivel_atual, 0) / subtema.conceitos.length
-      : 0;
-    const nivelMedioArredondado = Math.round(mediaNivel);
+    const status = classificarSubtema(subtema);
+    const cor = SUBTEMA_STATUS_COLOR[status];
+    const StatusIcon = SUBTEMA_STATUS_ICON[status];
+    const totalmenteDominado = status === "dominado";
 
     return (
       <View
@@ -244,54 +283,45 @@ export default function DisciplinaDetalhe() {
         style={{
           backgroundColor: SURFACE_SUBTEMA,
           borderWidth: 1,
-          borderColor: "rgba(255,255,255,0.04)",
+          borderColor: totalmenteDominado ? "rgba(34,197,94,0.35)" : "rgba(255,255,255,0.04)",
+          ...(totalmenteDominado
+            ? {
+                shadowColor: "#22c55e",
+                shadowOpacity: 0.2,
+                shadowRadius: 14,
+                shadowOffset: { width: 0, height: 0 },
+              }
+            : null),
         }}
       >
         <Pressable onPress={() => toggleSubtema(subtema.id)} className="active:opacity-80" hitSlop={4}>
-          <View className="flex-row items-center justify-between mb-1">
+          <View className="flex-row items-center mb-3">
+            <View
+              className="w-9 h-9 rounded-full items-center justify-center mr-3"
+              style={{ backgroundColor: `${cor}22`, borderWidth: 1, borderColor: `${cor}44` }}
+            >
+              <StatusIcon size={16} color={cor} />
+            </View>
+
             <Text className="text-white text-lg font-semibold flex-1 mr-2" numberOfLines={1}>
               {subtema.nome}
             </Text>
+
             <View style={{ transform: [{ rotate: aberto ? "180deg" : "0deg" }] }}>
               <ChevronDown size={20} color={PRIMARY_LIGHT} />
             </View>
           </View>
 
-          <View className="flex-row items-center justify-between">
-            <View className="flex-row items-center">
-              <Text className="text-xs font-medium" style={{ color: PRIMARY_LIGHT }}>
-                {STATUS_LABEL[subtema.status]}
-              </Text>
-              <View className="w-1 h-1 rounded-full mx-2" style={{ backgroundColor: MUTED }} />
-              <Text className="text-xs" style={{ color: MUTED }}>
-                {subtema.conceitos.length} conceitos
-              </Text>
-            </View>
-
-            <View className="flex-row items-center" style={{ gap: 4 }}>
-              {[1, 2, 3].map((nivel) => {
-                const preenchido = nivel <= nivelMedioArredondado;
-                return (
-                  <View
-                    key={nivel}
-                    style={{
-                      width: 6,
-                      height: 6,
-                      borderRadius: 3,
-                      backgroundColor: preenchido ? PRIMARY_LIGHT : "rgba(255,255,255,0.15)",
-                      ...(preenchido
-                        ? {
-                            shadowColor: PRIMARY_LIGHT,
-                            shadowOpacity: 0.7,
-                            shadowRadius: 3,
-                            shadowOffset: { width: 0, height: 0 },
-                          }
-                        : null),
-                    }}
-                  />
-                );
-              })}
-            </View>
+          <View
+            className="self-start rounded-full px-2.5 py-1"
+            style={{ backgroundColor: `${cor}22` }}
+          >
+            <Text
+              className="text-[10px] uppercase font-bold tracking-wider"
+              style={{ color: cor }}
+            >
+              {SUBTEMA_STATUS_LABEL[status]}
+            </Text>
           </View>
         </Pressable>
 
