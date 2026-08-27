@@ -1,27 +1,23 @@
 import ElixTabBar from "@/src/components/TabBar";
-import { Stack } from "expo-router";
-import { View } from "react-native";
+import { Tabs } from "expo-router";
 
-// Stack (não Tabs) para que a navegação entre as telas do app inteiro
-// aconteça "em pilha" (slide + swipe-back), já que a Tabs navigator troca de
-// tela instantaneamente. A barra flutuante (ElixTabBar) vira um overlay
-// independente, sobreposto à Stack — ver src/components/TabBar.tsx.
+// Tabs (não Stack) no nível raiz: Home e Perfil são abas de verdade agora —
+// cada uma fica montada permanentemente depois da primeira visita (só
+// escondida, nunca desmontada), então trocar de aba não recria o conteúdo
+// nem reinicia animações (ex: o preenchimento do frasco/cards na Home não
+// reiniciava do zero antes). O tabBar nativo do React Navigation é
+// substituído pelo nosso ElixTabBar (pill flutuante com blur) — a troca de
+// aba em si já é instantânea por padrão num Tabs navigator, sem precisar de
+// nenhuma configuração de animação.
+//
+// Cada aba tem seu próprio Stack aninhado (ver (home)/_layout.tsx e
+// (profile)/_layout.tsx) pra manter a transição em pilha nas telas que são
+// empilhadas a partir dela (quiz, studyContents, addContent).
 export default function TabsLayout() {
   return (
-    <View style={{ flex: 1 }}>
-      <Stack screenOptions={{ headerShown: false }}>
-        {/* Início/Perfil são trocados pela tab bar, não empilhados — sem
-            animação de slide, igual troca de aba de verdade. As outras telas
-            continuam com a transição em pilha padrão (push a partir delas). */}
-        <Stack.Screen name="home/index" options={{ animation: "none" }} />
-        <Stack.Screen name="quiz/index" />
-        <Stack.Screen name="quiz/result" />
-        <Stack.Screen name="studyContents/index" />
-        <Stack.Screen name="studyContents/[id]" />
-        <Stack.Screen name="studyContents/addContent" />
-        <Stack.Screen name="profile/index" options={{ animation: "none" }} />
-      </Stack>
-      <ElixTabBar />
-    </View>
+    <Tabs screenOptions={{ headerShown: false }} tabBar={() => <ElixTabBar />}>
+      <Tabs.Screen name="(home)" />
+      <Tabs.Screen name="(profile)" />
+    </Tabs>
   );
 }
