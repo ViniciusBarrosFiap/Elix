@@ -367,7 +367,7 @@ export default function QuizScreen() {
             }}
           />
         </View>
-        <Text
+        {/* <Text
           style={{
             fontFamily: 'Manrope_600SemiBold',
             fontSize: 12,
@@ -376,7 +376,7 @@ export default function QuizScreen() {
           }}
         >
           {currentQuestionIndex + 1}/{quizQuestions.length}
-        </Text>
+        </Text> */}
 
         {/* Frasco de elixir da sessão — enche a cada resposta (acerto sobe
             mais que erro), com gotas + "+XP" flutuando no momento do ganho. */}
