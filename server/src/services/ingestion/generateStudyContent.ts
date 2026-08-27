@@ -64,6 +64,18 @@ const responseSchema = {
   required: ["subtemas"],
 };
 
+// Timeout por chamada individual ao Gemini — proteção só contra uma chamada
+// realmente travada (rede morta, sem resposta nenhuma), não contra geração
+// demorada — confirmado que uma geração de material grande pode legitimamente
+// passar de 27s (o valor anterior cortava gerações válidas no meio, gerando
+// "AbortError: This operation was aborted"). 50s dá bastante fôlego pro caso
+// normal. Em produção (Vercel Hobby, maxDuration 60s no vercel.json), ainda
+// existe o teto de 60s da própria plataforma — se UMA chamada já está perto
+// de 50s e ainda precisar do retry de schema (ver generateStudyContent), dá
+// pra estourar o limite da função lá. Não tem como resolver isso só com
+// timeout sem também aumentar o maxDuration (exige plano Pro, até 300s).
+const TIMEOUT_POR_CHAMADA_MS = 50000;
+
 async function callGemini(prompt: string): Promise<unknown> {
   let raw: string | undefined;
 
@@ -74,12 +86,16 @@ async function callGemini(prompt: string): Promise<unknown> {
       config: {
         responseMimeType: "application/json",
         responseSchema,
+        httpOptions: { timeout: TIMEOUT_POR_CHAMADA_MS },
       },
     });
     raw = response.text;
   } catch (err) {
     console.error("Falha ao chamar o Gemini:", err);
-    throw new HttpError(502, "Não foi possível gerar sua revisão agora, tente novamente em instantes.");
+    throw new HttpError(
+      502,
+      "Não foi possível gerar sua revisão agora — o serviço de IA está sobrecarregado. Tente novamente em instantes."
+    );
   }
 
   if (!raw) {
@@ -100,8 +116,16 @@ interface GenerateInput {
 }
 
 /**
- * Chama o Gemini pedindo subtemas/conceitos/perguntas para a disciplina já escolhida.
- * Faz no máximo 1 retry se a resposta não bater com o schema esperado.
+ * Chama o Gemini pedindo subtemas/conceitos/perguntas para a disciplina já
+ * escolhida. Faz no máximo 1 retry se a resposta não bater com o schema
+ * esperado — no pior caso são 2 chamadas ao Gemini (até TIMEOUT_POR_CHAMADA_MS
+ * cada) numa única requisição, o que cabe nos 60s da função com folga.
+ *
+ * Não faz retry automático em erro transitório (ex: 503 de sobrecarga): na
+ * prática, quando o Gemini rejeita por sobrecarga costuma continuar
+ * rejeitando por bem mais que alguns segundos — um retry imediato não ajuda
+ * e só consome parte do orçamento de tempo à toa. Melhor falhar rápido com
+ * uma mensagem clara e deixar o usuário tentar de novo.
  */
 export async function generateStudyContent({
   disciplinaNome,
