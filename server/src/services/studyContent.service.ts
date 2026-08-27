@@ -1,11 +1,12 @@
 import { supabase } from "../config/supabase";
 import { HttpError } from "../middlewares/errorHandler";
-import { Conceito, MacroTema, StudyContentData } from "../schemas/studyContent.schema";
+import { Conceito, MacroTema, MaterialTipo, StudyContentData } from "../schemas/studyContent.schema";
 
 const NESTED_SELECT = `
   id, nome, emoji,
   sub_temas (
     id, nome,
+    materials ( id, nome_arquivo, mime_type ),
     conceitos (
       id, nome, status, nivel_atual, tag_foco, proxima_revisao, performance,
       perguntas (
@@ -14,6 +15,14 @@ const NESTED_SELECT = `
     )
   )
 `;
+
+// mime_type gravado em materials -> como o app deve oferecer a visualização
+// (ver getMaterialViewUrl em materials.service.ts).
+function materialTipoFromMime(mimeType: string | null): MaterialTipo {
+  if (mimeType === "video/youtube") return "youtube";
+  if (mimeType === "application/vnd.notion.page") return "notion";
+  return "documento";
+}
 
 // status_dominio (comecando/em_reforco/consolidando) de macro_tema e sub_tema
 // não é mais uma coluna confiável — nada escreve nela depois da criação, então
@@ -79,6 +88,11 @@ export async function getStudyContent(userId: string): Promise<StudyContentData>
         id: sub.id,
         nome: sub.nome,
         status: statusFromMastery(averageMastery(conceitos)),
+        material: {
+          id: sub.materials.id,
+          nome: sub.materials.nome_arquivo,
+          tipo: materialTipoFromMime(sub.materials.mime_type),
+        },
         conceitos,
       };
     });

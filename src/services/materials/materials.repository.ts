@@ -12,6 +12,11 @@ export interface UploadMaterialResult {
   macrotemas: StudyContentData["macrotemas"];
 }
 
+export interface MaterialViewUrl {
+  tipo: "documento" | "youtube" | "notion";
+  url: string | null;
+}
+
 export const MaterialsRepository = {
   async uploadFile(
     file: UploadableFile,
@@ -58,6 +63,12 @@ export const MaterialsRepository = {
     return apiFetch<UploadMaterialResult>("/api/materials/notion", {
       method: "POST",
       body: { page_id: pageId, page_title: pageTitle, macro_tema_id: macroTemaId, tags },
+    });
+  },
+
+  async getViewUrl(materialId: string): Promise<MaterialViewUrl> {
+    return apiFetch<MaterialViewUrl>(`/api/materials/${materialId}/view-url`, {
+      method: "GET",
     });
   },
 };

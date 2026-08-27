@@ -13,6 +13,8 @@ interface StudyContentStore {
   addMacroTema: (
     macroTema: MacroTema
   ) => void;
+
+  reset: () => void;
 }
 
 export const useStudyContentStore =
@@ -33,4 +35,6 @@ export const useStudyContentStore =
             }
           : null,
       })),
+
+    reset: () => set({ data: null }),
   }));

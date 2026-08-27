@@ -9,4 +9,8 @@ export const UserRepository = {
   async updateUser(updates: Partial<UserData>): Promise<UserData> {
     return apiFetch<UserData>("/api/users/me", { method: "PATCH", body: updates });
   },
+
+  async deleteAccount(): Promise<void> {
+    return apiFetch<void>("/api/users/me", { method: "DELETE" });
+  },
 };

@@ -12,6 +12,8 @@ interface UserDataStore {
   updateUser: (
     updates: Partial<UserData>
   ) => void;
+
+  reset: () => void;
 }
 
 export const useUserDataStore =
@@ -30,4 +32,6 @@ export const useUserDataStore =
             }
           : null,
       })),
+
+    reset: () => set({ data: null }),
   }));

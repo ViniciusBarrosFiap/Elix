@@ -15,6 +15,8 @@ interface QuizQuestionsStore {
   addQuestion: (
     question: QuizQuestion
   ) => void;
+
+  reset: () => void;
 }
 
 export const useQuizQuestionsStore =
@@ -42,4 +44,6 @@ export const useQuizQuestionsStore =
             }
           : null,
       })),
+
+    reset: () => set({ data: null }),
   }));

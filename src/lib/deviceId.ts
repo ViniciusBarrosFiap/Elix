@@ -24,3 +24,14 @@ export async function getDeviceId(): Promise<string> {
   cachedDeviceId = generated;
   return generated;
 }
+
+/**
+ * "Apagar dados locais": esquece o device_id atual (SecureStore + cache em
+ * memória), fazendo o próximo getDeviceId() gerar um UUID novo. O servidor
+ * não é avisado — os dados antigos continuam no Supabase, só ficam órfãos,
+ * vinculados a um device_id que o app não usa mais (ver deviceAuth.ts).
+ */
+export async function resetDeviceId(): Promise<void> {
+  await SecureStore.deleteItemAsync(DEVICE_ID_KEY);
+  cachedDeviceId = null;
+}

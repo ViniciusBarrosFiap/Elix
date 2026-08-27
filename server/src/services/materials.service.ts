@@ -92,7 +92,7 @@ async function processExtractedText({
     texto: texto.slice(0, env.MAX_INPUT_CHARS),
   });
 
-  await persistStudyContent(macroTemaId, generated);
+  await persistStudyContent(macroTemaId, materialId, generated);
 
   await supabase
     .from("materials")
@@ -197,6 +197,52 @@ export async function processNotionPage({
     await markMaterialAsErrored(materialId, mensagem);
     throw err instanceof HttpError ? err : new HttpError(500, mensagem);
   }
+}
+
+export interface MaterialViewUrl {
+  tipo: "documento" | "youtube" | "notion";
+  url: string | null;
+}
+
+/**
+ * Resolve como o usuário pode ver o material original a partir da tela da
+ * disciplina: link direto pro YouTube, uma URL assinada e temporária do
+ * Supabase Storage pro documento enviado, ou nada pro Notion (a página só é
+ * acessível através da própria integração OAuth, não por um link direto).
+ */
+export async function getMaterialViewUrl(materialId: string, userId: string): Promise<MaterialViewUrl> {
+  const { data: material, error } = await supabase
+    .from("materials")
+    .select("nome_arquivo, mime_type, storage_path")
+    .eq("id", materialId)
+    .eq("user_id", userId)
+    .single();
+
+  if (error || !material) {
+    throw new HttpError(404, "Material não encontrado.");
+  }
+
+  if (material.mime_type === "video/youtube") {
+    return { tipo: "youtube", url: material.nome_arquivo as string };
+  }
+
+  if (material.mime_type === "application/vnd.notion.page") {
+    return { tipo: "notion", url: null };
+  }
+
+  if (!material.storage_path) {
+    return { tipo: "documento", url: null };
+  }
+
+  const { data: signed, error: signError } = await supabase.storage
+    .from(env.SUPABASE_STORAGE_BUCKET)
+    .createSignedUrl(material.storage_path as string, 60 * 10);
+
+  if (signError || !signed) {
+    throw new HttpError(500, "Falha ao gerar o link de visualização do material.");
+  }
+
+  return { tipo: "documento", url: signed.signedUrl };
 }
 
 export async function processYoutubeLink({

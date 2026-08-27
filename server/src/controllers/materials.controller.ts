@@ -1,6 +1,11 @@
 import { Request, Response } from "express";
 import { HttpError } from "../middlewares/errorHandler";
-import { processUpload, processYoutubeLink, processNotionPage } from "../services/materials.service";
+import {
+  processUpload,
+  processYoutubeLink,
+  processNotionPage,
+  getMaterialViewUrl,
+} from "../services/materials.service";
 
 function parseTags(raw: unknown): string[] {
   if (raw === undefined || raw === null || raw === "") return [];
@@ -100,5 +105,11 @@ export async function uploadNotionMaterial(req: Request, res: Response) {
     pageTitle,
   });
 
+  return res.status(200).json(result);
+}
+
+// GET /api/materials/:id/view-url — link pra abrir o material original.
+export async function getMaterialViewUrlHandler(req: Request, res: Response) {
+  const result = await getMaterialViewUrl(req.params.id, req.user!.id);
   return res.status(200).json(result);
 }

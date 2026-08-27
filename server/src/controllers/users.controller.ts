@@ -72,3 +72,16 @@ export async function updateMe(req: Request, res: Response) {
 
   return res.status(200).json(toUserData(fresh as AuthedUserRow));
 }
+
+// DELETE /api/users/me — apaga o usuário e, por cascade (ver sql/001_init.sql
+// e sql/007_material_hierarchy.sql), todo o conteúdo dele: macro_temas,
+// materials, sub_temas, conceitos, perguntas e notion_connections.
+export async function deleteMe(req: Request, res: Response) {
+  const { error } = await supabase.from("users").delete().eq("id", req.user!.id);
+
+  if (error) {
+    throw new HttpError(500, "Falha ao apagar os dados do usuário.");
+  }
+
+  return res.status(204).send();
+}

@@ -86,12 +86,25 @@ export interface Conceito {
   perguntas: Pergunta[];
 }
 
+// Tipo do material que originou o subtema — determina como a tela da
+// disciplina oferece "abrir material" (link direto pro YouTube, URL assinada
+// pro documento, ou nenhuma opção pro Notion).
+export type MaterialTipo = "documento" | "youtube" | "notion";
+
+export interface SubTemaMaterial {
+  id: string;
+  nome: string; // nome do arquivo, URL do vídeo ou título da página
+  tipo: MaterialTipo;
+}
+
 export interface SubTema {
   id: string;
 
   nome: string;
 
   status: Status;
+
+  material: SubTemaMaterial;
 
   conceitos: Conceito[];
 }

@@ -94,10 +94,22 @@ export interface Conceito {
   perguntas: Pergunta[];
 }
 
+// Tipo do material que originou o subtema — determina como o app oferece a
+// visualização (link direto pro YouTube, URL assinada do Storage pro
+// documento, ou nenhuma opção pro Notion — ver materials.service.ts).
+export type MaterialTipo = "documento" | "youtube" | "notion";
+
+export interface SubTemaMaterial {
+  id: string;
+  nome: string; // nome do arquivo, URL do vídeo ou título da página
+  tipo: MaterialTipo;
+}
+
 export interface SubTema {
   id: string;
   nome: string;
   status: z.infer<typeof statusDominioSchema>;
+  material: SubTemaMaterial;
   conceitos: Conceito[];
 }
 
