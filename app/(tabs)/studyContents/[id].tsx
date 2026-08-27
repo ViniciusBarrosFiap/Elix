@@ -2,8 +2,12 @@ import {
   ArrowLeft,
   ChevronDown,
   CircleDot,
+  CirclePlay,
   Crown,
+  ExternalLink,
+  FileText,
   Flame,
+  NotebookText,
   Sparkles,
   Star,
   TrendingUp,
@@ -12,12 +16,18 @@ import {
 } from "lucide-react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, StatusBar, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StatusBar, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { StudyContentService } from "@/src/services/studyContent/studyContent.service";
+import { MaterialsRepository } from "@/src/services/materials/materials.repository";
 import { useStudyContentStore } from "@/src/store/studyContentStore";
-import { STATUS_LABEL, STATUS_CONCEITO_LABEL, StatusConceito } from "@/src/types/studyContent";
+import {
+  STATUS_LABEL,
+  STATUS_CONCEITO_LABEL,
+  StatusConceito,
+  MaterialTipo,
+} from "@/src/types/studyContent";
 
 // Cores de status por conceito. Carregam significado próprio (nível de
 // domínio), então ficam fora da paleta roxa do tema — igual ao original.
@@ -62,6 +72,20 @@ const SUBTEMA_STATUS_ICON: Record<SubtemaProgressStatus, typeof CircleDot> = {
   iniciando: Sparkles,
 };
 
+// Ícone/rótulo por tipo de material — cabeçalho de cada grupo na tela da
+// disciplina (ver renderGrupoMaterial).
+const MATERIAL_TIPO_ICON: Record<MaterialTipo, typeof FileText> = {
+  documento: FileText,
+  youtube: CirclePlay,
+  notion: NotebookText,
+};
+
+const MATERIAL_TIPO_LABEL: Record<MaterialTipo, string> = {
+  documento: "Documento",
+  youtube: "YouTube",
+  notion: "Notion",
+};
+
 // Tokens do design system "The Cognitive Sanctuary" (mesmos já usados no
 // app — só nomeei para reaproveitar em vários pontos da tela).
 const PRIMARY = "#8a2be2";
@@ -81,12 +105,53 @@ export default function DisciplinaDetalhe() {
   const macroTema = studyContentData?.macrotemas.find((m) => m.id === id);
 
   type SubtemaItem = NonNullable<typeof macroTema>["subtemas"][number];
+  type MaterialInfo = SubtemaItem["material"];
 
   // Controla quais subtemas estão com os conceitos expandidos. Funciona
   // igual pros 4 principais e pros que aparecem em "mostrar mais".
   const [subtemasAbertos, setSubtemasAbertos] = useState<Set<string>>(new Set());
-  // Controla se o grupo extra de subtemas está revelado (inline, sem modal).
-  const [mostrarTodos, setMostrarTodos] = useState(false);
+  // Controla quais grupos de material têm o "mostrar mais" revelado (por
+  // material, já que cada um agora tem sua própria lista de subtemas).
+  const [materiaisExpandidos, setMateriaisExpandidos] = useState<Set<string>>(new Set());
+  // Material cujo link de visualização está sendo buscado no momento (some
+  // ao terminar, com sucesso ou erro).
+  const [materialAbrindo, setMaterialAbrindo] = useState<string | null>(null);
+
+  const toggleMaterialExpandido = (materialId: string) => {
+    setMateriaisExpandidos((prev) => {
+      const proximo = new Set(prev);
+      if (proximo.has(materialId)) {
+        proximo.delete(materialId);
+      } else {
+        proximo.add(materialId);
+      }
+      return proximo;
+    });
+  };
+
+  // Abre o material original: link direto pro YouTube, ou uma URL assinada
+  // (buscada na hora) pro documento enviado. Notion não tem link direto —
+  // o botão nem aparece nesse caso (ver podeAbrirMaterial).
+  const abrirMaterial = async (material: MaterialInfo) => {
+    if (material.tipo === "youtube") {
+      Linking.openURL(material.nome);
+      return;
+    }
+
+    setMaterialAbrindo(material.id);
+    try {
+      const { url } = await MaterialsRepository.getViewUrl(material.id);
+      if (url) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert("Material indisponível", "Não foi possível encontrar o arquivo original desse material.");
+      }
+    } catch {
+      Alert.alert("Erro", "Não foi possível abrir o material agora. Tente de novo em instantes.");
+    } finally {
+      setMaterialAbrindo(null);
+    }
+  };
 
   const toggleSubtema = (subtemaId: string) => {
     setSubtemasAbertos((prev) => {
@@ -119,18 +184,35 @@ export default function DisciplinaDetalhe() {
     return dominados === total ? "dominado" : nuncaRevisados === total ? "iniciando" : "em_reforco";
   };
 
-  // Subtemas ordenados do que mais tem conceitos com erro para o que
-  // menos tem. Os 4 primeiros aparecem sempre visíveis; o resto fica
-  // atrás do "Mostrar mais", na própria tela (sem modal).
-  const subtemasOrdenados = useMemo(() => {
-    if (!macroTema) return [];
-    return [...macroTema.subtemas].sort(
-      (a, b) => contarConceitosComErro(b) - contarConceitosComErro(a)
-    );
-  }, [macroTema]);
+  interface GrupoMaterial {
+    material: MaterialInfo;
+    subtemas: SubtemaItem[];
+  }
 
-  const subtemasPrincipais = subtemasOrdenados.slice(0, MAX_SUBTEMAS_VISIVEIS);
-  const subtemasRestantes = subtemasOrdenados.slice(MAX_SUBTEMAS_VISIVEIS);
+  // Agrupa os subtemas pelo material que os gerou (documento, vídeo do
+  // YouTube ou página do Notion) — cada material vira seu próprio painel na
+  // tela, com os subtemas ordenados do que mais tem conceitos com erro pro
+  // que menos tem dentro daquele grupo.
+  const gruposPorMaterial = useMemo<GrupoMaterial[]>(() => {
+    if (!macroTema) return [];
+
+    const porMaterial = new Map<string, GrupoMaterial>();
+    for (const subtema of macroTema.subtemas) {
+      const grupo = porMaterial.get(subtema.material.id) ?? {
+        material: subtema.material,
+        subtemas: [] as SubtemaItem[],
+      };
+      grupo.subtemas.push(subtema);
+      porMaterial.set(subtema.material.id, grupo);
+    }
+
+    return Array.from(porMaterial.values()).map((grupo) => ({
+      ...grupo,
+      subtemas: [...grupo.subtemas].sort(
+        (a, b) => contarConceitosComErro(b) - contarConceitosComErro(a)
+      ),
+    }));
+  }, [macroTema]);
 
   // Resumo de gamificação da disciplina: quantos conceitos já foram
   // dominados vs. quantos ainda estão em reforço — dá peso visual ao
@@ -269,7 +351,11 @@ export default function DisciplinaDetalhe() {
   // (derivado dos conceitos, não do campo estático da API) + pill colorida +
   // barra de progresso média, num vocabulário visual que já existe nos
   // conceitos e no hero da disciplina — o mesmo "idioma" em três escalas.
-  const renderSubtemaPrincipal = (subtema: SubtemaItem) => {
+  // Linha de subtema — item de lista dentro do painel único agrupado sob o
+  // título do material (não é mais um card flutuante independente; a
+  // separação entre subtemas vira uma divisória fina + barra de destaque
+  // colorida à esquerda quando dominado, em vez de borda/sombra própria).
+  const renderSubtemaPrincipal = (subtema: SubtemaItem, isLast: boolean) => {
     const aberto = subtemasAbertos.has(subtema.id);
     const status = classificarSubtema(subtema);
     const cor = SUBTEMA_STATUS_COLOR[status];
@@ -279,53 +365,154 @@ export default function DisciplinaDetalhe() {
     return (
       <View
         key={subtema.id}
-        className="rounded-[24px] p-4"
         style={{
-          backgroundColor: SURFACE_SUBTEMA,
-          borderWidth: 1,
-          borderColor: totalmenteDominado ? "rgba(34,197,94,0.35)" : "rgba(255,255,255,0.04)",
-          ...(totalmenteDominado
-            ? {
-                shadowColor: "#22c55e",
-                shadowOpacity: 0.2,
-                shadowRadius: 14,
-                shadowOffset: { width: 0, height: 0 },
-              }
-            : null),
+          borderBottomWidth: isLast && !aberto ? 0 : 1,
+          borderBottomColor: "rgba(255,255,255,0.06)",
+          paddingBottom: 14,
         }}
       >
-        <Pressable onPress={() => toggleSubtema(subtema.id)} className="active:opacity-80" hitSlop={4}>
-          <View className="flex-row items-center mb-3">
-            <View
-              className="w-9 h-9 rounded-full items-center justify-center mr-3"
-              style={{ backgroundColor: `${cor}22`, borderWidth: 1, borderColor: `${cor}44` }}
-            >
-              <StatusIcon size={16} color={cor} />
-            </View>
+        <Pressable
+          onPress={() => toggleSubtema(subtema.id)}
+          className="active:opacity-70 flex-row items-center"
+          hitSlop={4}
+        >
+          <View
+            style={{
+              width: 3,
+              height: 30,
+              borderRadius: 2,
+              backgroundColor: totalmenteDominado ? cor : "transparent",
+              marginRight: totalmenteDominado ? 10 : 0,
+            }}
+          />
 
-            <Text className="text-white text-lg font-semibold flex-1 mr-2" numberOfLines={1}>
+          <View
+            className="w-9 h-9 rounded-full items-center justify-center mr-3"
+            style={{ backgroundColor: `${cor}22`, borderWidth: 1, borderColor: `${cor}44` }}
+          >
+            <StatusIcon size={16} color={cor} />
+          </View>
+
+          <View className="flex-1 mr-2">
+            <Text className="text-white text-base font-semibold mb-1" numberOfLines={1}>
               {subtema.nome}
             </Text>
-
-            <View style={{ transform: [{ rotate: aberto ? "180deg" : "0deg" }] }}>
-              <ChevronDown size={20} color={PRIMARY_LIGHT} />
+            <View
+              className="self-start rounded-full px-2.5 py-0.5"
+              style={{ backgroundColor: `${cor}22` }}
+            >
+              <Text
+                className="text-[10px] uppercase font-bold tracking-wider"
+                style={{ color: cor }}
+              >
+                {SUBTEMA_STATUS_LABEL[status]}
+              </Text>
             </View>
           </View>
 
-          <View
-            className="self-start rounded-full px-2.5 py-1"
-            style={{ backgroundColor: `${cor}22` }}
-          >
-            <Text
-              className="text-[10px] uppercase font-bold tracking-wider"
-              style={{ color: cor }}
-            >
-              {SUBTEMA_STATUS_LABEL[status]}
-            </Text>
+          <View style={{ transform: [{ rotate: aberto ? "180deg" : "0deg" }] }}>
+            <ChevronDown size={20} color={PRIMARY_LIGHT} />
           </View>
         </Pressable>
 
-        {aberto && <View style={{ marginTop: 12 }}>{renderListaConceitos(subtema)}</View>}
+        {aberto && <View style={{ marginTop: 14, paddingLeft: 4 }}>{renderListaConceitos(subtema)}</View>}
+      </View>
+    );
+  };
+
+  // Painel de um material — o novo nível da hierarquia entre a disciplina e
+  // os subtemas: cada documento/vídeo/página vira seu próprio grupo, com o
+  // nome do material no cabeçalho e um botão pra abrir o original (exceto
+  // Notion, que não tem link direto fora da própria integração OAuth).
+  const renderGrupoMaterial = (grupo: GrupoMaterial) => {
+    const { material, subtemas } = grupo;
+    const expandido = materiaisExpandidos.has(material.id);
+    const subtemasVisiveis = expandido ? subtemas : subtemas.slice(0, MAX_SUBTEMAS_VISIVEIS);
+    const restantes = subtemas.length - subtemasVisiveis.length;
+    const MaterialIcon = MATERIAL_TIPO_ICON[material.tipo];
+    const podeAbrir = material.tipo !== "notion";
+    const abrindo = materialAbrindo === material.id;
+
+    return (
+      <View
+        key={material.id}
+        className="rounded-[28px] p-4"
+        style={{
+          backgroundColor: SURFACE_SUBTEMA,
+          borderWidth: 1,
+          borderColor: `${PRIMARY}26`,
+        }}
+      >
+        <View className="flex-row items-center mb-3" style={{ paddingHorizontal: 2 }}>
+          <View
+            className="w-8 h-8 rounded-full items-center justify-center mr-2.5"
+            style={{ backgroundColor: `${PRIMARY}22`, borderWidth: 1, borderColor: `${PRIMARY}44` }}
+          >
+            <MaterialIcon size={14} color={PRIMARY_LIGHT} />
+          </View>
+
+          <View className="flex-1 mr-2">
+            <Text
+              className="text-[10px] font-bold uppercase tracking-wider mb-0.5"
+              style={{ color: PRIMARY_LIGHT, opacity: 0.65 }}
+            >
+              {MATERIAL_TIPO_LABEL[material.tipo]}
+            </Text>
+            <Text className="text-white text-sm font-semibold" numberOfLines={1}>
+              {material.nome}
+            </Text>
+          </View>
+
+          {podeAbrir && (
+            <Pressable
+              onPress={() => abrirMaterial(material)}
+              disabled={abrindo}
+              className="items-center justify-center active:opacity-60"
+              hitSlop={8}
+              style={{ width: 32, height: 32 }}
+            >
+              {abrindo ? (
+                <ActivityIndicator size="small" color={PRIMARY_LIGHT} />
+              ) : (
+                <ExternalLink size={16} color={PRIMARY_LIGHT} />
+              )}
+            </Pressable>
+          )}
+        </View>
+
+        {subtemasVisiveis.map((subtema, index) =>
+          renderSubtemaPrincipal(subtema, index === subtemasVisiveis.length - 1 && restantes === 0)
+        )}
+
+        {restantes > 0 && (
+          <Pressable
+            onPress={() => toggleMaterialExpandido(material.id)}
+            className="flex-row items-center justify-center active:opacity-60"
+            style={{ paddingTop: 12 }}
+            hitSlop={6}
+          >
+            <Text className="text-sm font-medium" style={{ color: PRIMARY_LIGHT, marginRight: 4 }}>
+              Mostrar mais {restantes}
+            </Text>
+            <ChevronDown size={14} color={PRIMARY_LIGHT} />
+          </Pressable>
+        )}
+
+        {expandido && subtemas.length > MAX_SUBTEMAS_VISIVEIS && (
+          <Pressable
+            onPress={() => toggleMaterialExpandido(material.id)}
+            className="flex-row items-center justify-center active:opacity-60"
+            style={{ paddingTop: 12 }}
+            hitSlop={6}
+          >
+            <Text className="text-sm font-medium" style={{ color: PRIMARY_LIGHT, marginRight: 4 }}>
+              Mostrar menos
+            </Text>
+            <View style={{ transform: [{ rotate: "180deg" }] }}>
+              <ChevronDown size={14} color={PRIMARY_LIGHT} />
+            </View>
+          </Pressable>
+        )}
       </View>
     );
   };
@@ -488,7 +675,8 @@ export default function DisciplinaDetalhe() {
             )}
           </View>
 
-          {/* Lista de subtemas + conceitos — mesma área de rolagem do hero */}
+          {/* Um painel por material (documento/vídeo/página) — cada um com
+              seus próprios subtemas/conceitos, em vez de uma lista só */}
           <View style={{ gap: 20 }}>
             {macroTema.subtemas_ativos === 0 ? (
               <Text style={{ color: MUTED }} className="text-center mt-10">
@@ -496,31 +684,15 @@ export default function DisciplinaDetalhe() {
               </Text>
             ) : (
               <>
-                <View className="flex-row items-center justify-between mb-1">
-                  <Text className="text-white text-lg font-semibold">Subtemas</Text>
-                  {subtemasRestantes.length > 0 && (
-                    <Pressable
-                      onPress={() => setMostrarTodos((v) => !v)}
-                      className="flex-row items-center active:opacity-60"
-                      hitSlop={6}
-                    >
-                      <Text className="text-sm font-medium" style={{ color: PRIMARY_LIGHT, marginRight: 4 }}>
-                        {mostrarTodos ? "Mostrar menos" : "Mostrar mais"}
-                      </Text>
-                      <View style={{ transform: [{ rotate: mostrarTodos ? "180deg" : "0deg" }] }}>
-                        <ChevronDown size={14} color={PRIMARY_LIGHT} />
-                      </View>
-                    </Pressable>
-                  )}
+                <View>
+                  <Text
+                    className="text-[11px] font-bold uppercase tracking-wider mb-3"
+                    style={{ color: PRIMARY_LIGHT, opacity: 0.75, paddingHorizontal: 2 }}
+                  >
+                    Materiais
+                  </Text>
+                  <View style={{ gap: 16 }}>{gruposPorMaterial.map(renderGrupoMaterial)}</View>
                 </View>
-
-                {subtemasPrincipais.map(renderSubtemaPrincipal)}
-
-                {mostrarTodos && subtemasRestantes.length > 0 && (
-                  <View style={{ gap: 20 }}>
-                    {subtemasRestantes.map(renderSubtemaPrincipal)}
-                  </View>
-                )}
 
                 <Pressable
                   onPress={() =>
