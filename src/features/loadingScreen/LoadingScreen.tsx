@@ -189,7 +189,7 @@ export default function LoadingScreen({ next, title, subtitle }: Props) {
 
     Animated.timing(fillAnimation, {
       toValue: 0.9,
-      duration: 10000,
+      duration: 8000,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
