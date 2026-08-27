@@ -48,4 +48,16 @@ export const MaterialsRepository = {
       body: { url, macro_tema_id: macroTemaId, tags },
     });
   },
+
+  async uploadNotionPage(
+    pageId: string,
+    pageTitle: string,
+    macroTemaId: string,
+    tags: string[]
+  ): Promise<UploadMaterialResult> {
+    return apiFetch<UploadMaterialResult>("/api/materials/notion", {
+      method: "POST",
+      body: { page_id: pageId, page_title: pageTitle, macro_tema_id: macroTemaId, tags },
+    });
+  },
 };

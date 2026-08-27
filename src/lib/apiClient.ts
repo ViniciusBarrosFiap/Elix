@@ -45,5 +45,11 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
     throw new Error(mensagem);
   }
 
+  // 204 (ou qualquer resposta sem corpo) não tem JSON pra parsear — response.json()
+  // lançaria "Unexpected end of JSON input" nesse caso.
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
   return response.json() as Promise<T>;
 }

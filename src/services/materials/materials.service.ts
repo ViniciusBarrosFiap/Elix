@@ -21,4 +21,14 @@ export const MaterialsService = {
 
     return result;
   },
+
+  async uploadNotionPage(pageId: string, pageTitle: string, macroTemaId: string, tags: string[]) {
+    const result = await MaterialsRepository.uploadNotionPage(pageId, pageTitle, macroTemaId, tags);
+
+    useStudyContentStore
+      .getState()
+      .setData({ macrotemas: result.macrotemas });
+
+    return result;
+  },
 };

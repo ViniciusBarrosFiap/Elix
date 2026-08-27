@@ -42,6 +42,7 @@ import { UserService } from '@/src/services/user/user.service';
 import { StudyContentService } from '@/src/services/studyContent/studyContent.service';
 import { MacroTemaListItem } from '@/src/services/studyContent/studyContent.repository';
 import { MaterialsService } from '@/src/services/materials/materials.service';
+import { NotionService, NotionPage } from '@/src/services/notion/notion.service';
 
 type TagItem = {
   id: string;
@@ -53,11 +54,12 @@ type AttachedFile = {
   name: string;
   size: string;
   pages: string;
-  kind: 'pdf' | 'docx' | 'youtube';
+  kind: 'pdf' | 'docx' | 'youtube' | 'notion';
 };
 
 const YOUTUBE_FILE_ID = 'youtube-link';
 const YOUTUBE_URL_RE = /^https?:\/\/(www\.|m\.)?(youtube\.com\/(watch\?v=|shorts\/|embed\/)|youtu\.be\/)/i;
+const NOTION_FILE_ID = 'notion-page';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -90,10 +92,18 @@ export default function AddContent() {
 
   // Fonte alternativa ao arquivo: link do YouTube (transcrição vira o texto
   // de entrada da geração). Só uma fonte fica ativa por vez — ver
-  // selecionarDocumento/handleAddYoutubeLink.
+  // selecionarDocumento/handleAddYoutubeLink/handleSelectNotionPage.
   const [youtubeUrl, setYoutubeUrl] = useState<string | null>(null);
   const [isYoutubeModalOpen, setIsYoutubeModalOpen] = useState(false);
   const [youtubeInputText, setYoutubeInputText] = useState('');
+
+  // Terceira fonte alternativa: página do Notion (importada via OAuth já
+  // conectado). Mesma regra de fonte única do YouTube/arquivo.
+  const [notionPage, setNotionPage] = useState<{ id: string; title: string } | null>(null);
+  const [isNotionPickerOpen, setIsNotionPickerOpen] = useState(false);
+  const [notionPages, setNotionPages] = useState<NotionPage[]>([]);
+  const [isLoadingNotionPages, setIsLoadingNotionPages] = useState(false);
+  const [isConnectingNotion, setIsConnectingNotion] = useState(false);
 
   const [newTagText, setNewTagText] = useState('');
   const [isAddingTag, setIsAddingTag] = useState(false);
@@ -131,6 +141,9 @@ export default function AddContent() {
     if (id === YOUTUBE_FILE_ID) {
       setYoutubeUrl(null);
     }
+    if (id === NOTION_FILE_ID) {
+      setNotionPage(null);
+    }
   };
 
   const handleAddYoutubeLink = () => {
@@ -140,10 +153,11 @@ export default function AddContent() {
       return;
     }
 
-    // Só uma fonte por vez: um link novo substitui um arquivo já selecionado.
+    // Só uma fonte por vez: um link novo substitui qualquer outra fonte já escolhida.
     setFile(null);
+    setNotionPage(null);
     setFiles((prev) => [
-      ...prev.filter((f) => f.id !== YOUTUBE_FILE_ID),
+      ...prev.filter((f) => f.id !== YOUTUBE_FILE_ID && f.id !== NOTION_FILE_ID),
       {
         id: YOUTUBE_FILE_ID,
         name: url,
@@ -155,6 +169,88 @@ export default function AddContent() {
     setYoutubeUrl(url);
     setYoutubeInputText('');
     setIsYoutubeModalOpen(false);
+  };
+
+  // Busca as páginas que o usuário compartilhou com a integração e abre o
+  // seletor. Se ainda não conectou, dispara o OAuth primeiro — tudo num só
+  // toque, sem o usuário precisar saber que são dois passos.
+  const carregarPaginasNotion = async () => {
+    setIsLoadingNotionPages(true);
+    try {
+      const pages = await NotionService.getPages();
+      setNotionPages(pages);
+    } catch (error) {
+      const mensagem = error instanceof Error ? error.message : 'Não foi possível carregar as páginas do Notion.';
+      Alert.alert('Erro', mensagem);
+    } finally {
+      setIsLoadingNotionPages(false);
+    }
+  };
+
+  const handleImportNotion = async () => {
+    setIsConnectingNotion(true);
+    try {
+      const status = await NotionService.getStatus();
+
+      if (!status.connected) {
+        const resultado = await NotionService.connect();
+        if (!resultado.ok) {
+          if (resultado.reason && resultado.reason !== 'cancelado') {
+            Alert.alert('Não foi possível conectar', 'Tente novamente em alguns instantes.');
+          }
+          return;
+        }
+      }
+
+      setIsNotionPickerOpen(true);
+      await carregarPaginasNotion();
+    } catch (error) {
+      const mensagem = error instanceof Error ? error.message : 'Não foi possível conectar ao Notion agora.';
+      Alert.alert('Erro', mensagem);
+    } finally {
+      setIsConnectingNotion(false);
+    }
+  };
+
+  // Reabre a tela de autorização do Notion mesmo já conectado — é a única
+  // forma de voltar pro seletor de páginas dele e compartilhar outras além
+  // das já escolhidas da primeira vez (uma vez conectado, o app não tem
+  // como reabrir esse seletor sozinho, quem mostra ele é o próprio Notion).
+  const handleCompartilharMaisPaginas = async () => {
+    setIsConnectingNotion(true);
+    try {
+      const resultado = await NotionService.connect();
+      if (!resultado.ok) {
+        if (resultado.reason && resultado.reason !== 'cancelado') {
+          Alert.alert('Não foi possível conectar', 'Tente novamente em alguns instantes.');
+        }
+        return;
+      }
+      await carregarPaginasNotion();
+    } catch (error) {
+      const mensagem = error instanceof Error ? error.message : 'Não foi possível conectar ao Notion agora.';
+      Alert.alert('Erro', mensagem);
+    } finally {
+      setIsConnectingNotion(false);
+    }
+  };
+
+  const handleSelectNotionPage = (page: NotionPage) => {
+    // Só uma fonte por vez: uma página nova substitui qualquer outra fonte já escolhida.
+    setFile(null);
+    setYoutubeUrl(null);
+    setFiles((prev) => [
+      ...prev.filter((f) => f.id !== YOUTUBE_FILE_ID && f.id !== NOTION_FILE_ID),
+      {
+        id: NOTION_FILE_ID,
+        name: page.title,
+        size: 'Notion',
+        pages: 'Página importada',
+        kind: 'notion',
+      } as AttachedFile,
+    ]);
+    setNotionPage({ id: page.id, title: page.title });
+    setIsNotionPickerOpen(false);
   };
 
   const handleAddTag = () => {
@@ -206,10 +302,14 @@ export default function AddContent() {
         };
 
         // 4. Atualizar os estados corretamente (só uma fonte por vez — um
-        // arquivo novo substitui um link do YouTube já colado).
+        // arquivo novo substitui um link do YouTube ou página do Notion já escolhidos).
         setYoutubeUrl(null);
+        setNotionPage(null);
         setFile(arquivoSelecionado); // Se ainda precisar do asset bruto
-        setFiles((prev) => [...prev.filter((f) => f.id !== YOUTUBE_FILE_ID), novoArquivo]); // Adiciona o novo arquivo à lista existente
+        setFiles((prev) => [
+          ...prev.filter((f) => f.id !== YOUTUBE_FILE_ID && f.id !== NOTION_FILE_ID),
+          novoArquivo,
+        ]); // Adiciona o novo arquivo à lista existente
 
       } else {
         Alert.alert('Cancelado', 'Nenhum arquivo foi selecionado.');
@@ -239,24 +339,31 @@ export default function AddContent() {
       return;
     }
 
-    if (!file && !youtubeUrl) {
-      Alert.alert('Selecione uma fonte', 'Anexe um material (PDF ou DOCX) ou cole um link do YouTube antes de gerar a revisão.');
+    if (!file && !youtubeUrl && !notionPage) {
+      Alert.alert('Selecione uma fonte', 'Anexe um material (PDF ou DOCX), cole um link do YouTube ou importe uma página do Notion antes de gerar a revisão.');
       return;
     }
 
     setIsGenerating(true);
     try {
-      const result = youtubeUrl
-        ? await MaterialsService.uploadYoutubeLink(
-            youtubeUrl,
+      const result = notionPage
+        ? await MaterialsService.uploadNotionPage(
+            notionPage.id,
+            notionPage.title,
             selectedMacroTemaId,
             tags.map((t) => t.label)
           )
-        : await MaterialsService.uploadFile(
-            { uri: file!.uri, name: file!.name, mimeType: file!.mimeType },
-            selectedMacroTemaId,
-            tags.map((t) => t.label)
-          );
+        : youtubeUrl
+          ? await MaterialsService.uploadYoutubeLink(
+              youtubeUrl,
+              selectedMacroTemaId,
+              tags.map((t) => t.label)
+            )
+          : await MaterialsService.uploadFile(
+              { uri: file!.uri, name: file!.name, mimeType: file!.mimeType },
+              selectedMacroTemaId,
+              tags.map((t) => t.label)
+            );
 
       await UserService.updateUser({
         fezUpload: true,
@@ -590,12 +697,8 @@ export default function AddContent() {
             {/* Import Notion */}
             <Pressable
               className="w-full bg-[#1a1528] active:bg-[#201a30] border border-white/5 rounded-2xl p-5 flex-row items-center justify-between"
-              onPress={() =>
-                Alert.alert(
-                  'Em breve',
-                  'A importação direto do Notion ainda está em desenvolvimento. Por enquanto, anexe o arquivo abaixo.'
-                )
-              }
+              onPress={handleImportNotion}
+              disabled={isConnectingNotion}
             >
               <View className="flex-row items-center flex-1">
                 <View className="w-12 h-12 rounded-xl bg-black items-center justify-center border border-white/10 mr-4">
@@ -610,11 +713,15 @@ export default function AddContent() {
                     Importar do Notion
                   </Text>
                   <Text className="text-xs text-[#a09ba8]">
-                    Selecione páginas ou bancos
+                    Selecione uma página compartilhada com a integração
                   </Text>
                 </View>
               </View>
-              <ChevronRight size={22} color="#8A2BE2" />
+              {isConnectingNotion ? (
+                <ActivityIndicator color="#8A2BE2" />
+              ) : (
+                <ChevronRight size={22} color="#8A2BE2" />
+              )}
             </Pressable>
           </View>
 
@@ -637,7 +744,9 @@ export default function AddContent() {
                           ? 'bg-[#e53935]'
                           : file.kind === 'youtube'
                             ? 'bg-[#ff4b4b]'
-                            : 'bg-[#1e88e5]'
+                            : file.kind === 'notion'
+                              ? 'bg-black border border-white/10'
+                              : 'bg-[#1e88e5]'
                       }`}
                     >
                       {file.kind === 'pdf' ? (
@@ -646,6 +755,12 @@ export default function AddContent() {
                         </Text>
                       ) : file.kind === 'youtube' ? (
                         <Link2 size={24} color="#ffffff" />
+                      ) : file.kind === 'notion' ? (
+                        <Image
+                          source={require('@/assets/images/icon-notion.png')}
+                          resizeMode="contain"
+                          className="w-7 h-7"
+                        />
                       ) : (
                         <FileText size={24} color="#ffffff" />
                       )}
@@ -726,6 +841,78 @@ export default function AddContent() {
                 <View style={{ height: 20 }} />
               </Pressable>
             </KeyboardAvoidingView>
+          </Pressable>
+        </Modal>
+
+        <Modal
+          visible={isNotionPickerOpen}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setIsNotionPickerOpen(false)}
+        >
+          <Pressable
+            className="flex-1 bg-black/60 justify-end"
+            onPress={() => setIsNotionPickerOpen(false)}
+          >
+            <View className="bg-[#1a1528] rounded-t-3xl overflow-hidden" onStartShouldSetResponder={() => true}>
+              <View className="px-6 pt-5 pb-4 border-b border-white/10">
+                <Text className="text-white text-base font-semibold">Selecione uma página</Text>
+                <Text className="text-xs text-[#a09ba8] mt-1">
+                  Só aparecem páginas compartilhadas com a integração Elix no Notion.
+                </Text>
+              </View>
+
+              {isLoadingNotionPages ? (
+                <View className="items-center justify-center py-10">
+                  <ActivityIndicator color="#8A2BE2" />
+                </View>
+              ) : notionPages.length === 0 ? (
+                <View className="items-center px-6 py-10">
+                  <Text className="text-sm text-[#a09ba8] text-center leading-5">
+                    Nenhuma página compartilhada ainda. Abra o Notion, entre na página desejada e
+                    compartilhe com a integração "Elix" pelo menu de conexões.
+                  </Text>
+                </View>
+              ) : (
+                <FlatList
+                  data={notionPages}
+                  keyExtractor={(item) => item.id}
+                  style={{ maxHeight: 360 }}
+                  renderItem={({ item }) => (
+                    <Pressable
+                      onPress={() => handleSelectNotionPage(item)}
+                      className="flex-row items-center px-6 py-4 border-b border-white/5 active:bg-white/5"
+                    >
+                      <Text className="text-lg mr-3">{item.icon ?? '📄'}</Text>
+                      <Text className="text-white text-base flex-1" numberOfLines={1}>
+                        {item.title}
+                      </Text>
+                    </Pressable>
+                  )}
+                />
+              )}
+
+              <View className="px-6 pt-4 pb-2 border-t border-white/10">
+                <Pressable
+                  onPress={handleCompartilharMaisPaginas}
+                  disabled={isConnectingNotion}
+                  className="flex-row items-center justify-center py-3 rounded-xl active:opacity-80"
+                  style={{ backgroundColor: 'rgba(138,43,226,0.12)' }}
+                >
+                  {isConnectingNotion ? (
+                    <ActivityIndicator color="#8A2BE2" />
+                  ) : (
+                    <>
+                      <Plus size={16} color="#8A2BE2" />
+                      <Text className="text-[#8A2BE2] text-sm font-semibold ml-2">
+                        Compartilhar mais páginas
+                      </Text>
+                    </>
+                  )}
+                </Pressable>
+              </View>
+              <View style={{ height: 30 }} />
+            </View>
           </Pressable>
         </Modal>
 

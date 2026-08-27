@@ -27,7 +27,6 @@ const BODY_PATH =
   "M24 4 H36 V18 C46.5 20 52 30 52 44 C52 62 42.5 74 30 74 C17.5 74 8 62 8 44 C8 30 13.5 20 24 18 Z";
 const LIQUID_EMPTY_Y = 74; // fundo do frasco (0%)
 const LIQUID_FULL_Y = 22; // perto do gargalo (100%)
-
 const DROPLET_COUNT = 6;
 
 export interface ElixirFlaskHandle {

@@ -29,11 +29,17 @@ export interface NotionPageSummary {
   last_edited_time: string;
 }
 
-/** Monta a URL de autorização do Notion, já com o state amarrado a esse usuário. */
-export function buildAuthorizationUrl(userId: string): string {
+/**
+ * Monta a URL de autorização do Notion, já com o state amarrado a esse
+ * usuário. `returnTo`, se informado, é o deep link específico da sessão do
+ * app pra onde o callback deve mandar o navegador no final — necessário no
+ * Expo Go, onde o deep link muda a cada sessão de dev (exp://<ip>:<porta>/...)
+ * e não dá pra fixar um único valor no .env do server.
+ */
+export function buildAuthorizationUrl(userId: string, returnTo?: string): string {
   assertConfigurado();
 
-  const state = criarState(userId);
+  const state = criarState(userId, returnTo);
   const url = new URL(NOTION_AUTHORIZE_URL);
   url.searchParams.set("client_id", env.NOTION_CLIENT_ID!);
   url.searchParams.set("redirect_uri", env.NOTION_REDIRECT_URI!);
