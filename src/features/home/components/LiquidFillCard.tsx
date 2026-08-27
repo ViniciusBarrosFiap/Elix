@@ -1,3 +1,4 @@
+import { useIsFocused } from "@react-navigation/native";
 import { BlurView } from "expo-blur";
 import React, { FC, ReactNode, useEffect, useRef, useState } from "react";
 import { Animated, AppState, AppStateStatus, Easing, StyleSheet, Text, View, ViewStyle } from "react-native";
@@ -52,6 +53,17 @@ const WaveSvg: FC<{
   const lastMsRef = useRef<number | null>(null); // FIX 2: timestamp do frame anterior
   const activeRef = useRef(true);                // FIX 1: pausa quando app em background
 
+  // FIX 3: pausa quando a TELA perde foco (ex: trocou de aba pro Profile) —
+  // sem isso, o loop de rAF de cada card continuado rodando por baixo da
+  // Stack (que não desmonta a Home ao trocar de aba) competia pela thread de
+  // JS bem na hora da transição, causando a travada ao abrir outra aba.
+  const isFocused = useIsFocused();
+  const focusedRef = useRef(isFocused);
+  useEffect(() => {
+    focusedRef.current = isFocused;
+    if (isFocused) lastMsRef.current = null; // reseta o delta ao voltar o foco
+  }, [isFocused]);
+
   useEffect(() => {
     // FIX 1: escuta mudanças de estado do app
     const onAppStateChange = (state: AppStateStatus) => {
@@ -72,8 +84,8 @@ const WaveSvg: FC<{
         : 16;
       lastMsRef.current = timestamp;
 
-      // só avança a física se o app estiver em foreground
-      if (activeRef.current) {
+      // só avança a física se o app estiver em foreground E a tela em foco
+      if (activeRef.current && focusedRef.current) {
         // FIX 2: velocidade baseada em delta — igual em 60fps, 90fps e 120fps
         tRef.current    += WAVE_SPEED * delta;
         fillRef.current += (progressRef.current - fillRef.current) * FILL_SPEED * delta;
