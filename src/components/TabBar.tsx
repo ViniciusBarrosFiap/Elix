@@ -50,11 +50,10 @@ const INACTIVE = "rgba(255,255,255,0.45)";
 
 // ─── Custom Tab Bar
 //
-// Overlay flutuante independente de qualquer navigator de tabs — a navegação
-// do app inteiro roda numa Stack (ver app/(tabs)/_layout.tsx), então esta
-// barra só lê a rota atual (usePathname) e navega via router.navigate, que
-// reaproveita a tela já empilhada em vez de duplicar (mesmo efeito de "trocar
-// de tab" que a Tabs navigator dava, mas preservando a transição em pilha).
+// Substitui a tab bar nativa de app/(tabs)/_layout.tsx (Tabs navigator real —
+// Home e Perfil ficam sempre montados, só esta barra decide o que mostrar).
+// Lê a rota atual via usePathname() e navega via router.navigate, que troca
+// de aba (jump, sem remontar) em vez de empilhar uma tela nova.
 //
 // Pill flutuante com blur — o iOS usa material translúcido (UIBlurEffect) por
 // padrão na tab bar do sistema, então o blur aqui é consistente com a
