@@ -380,7 +380,7 @@ export default function AddContent() {
       Alert.alert(
         'Revisão gerada com sucesso!',
         macroTemaAtualizado
-          ? `${totalConceitos} conceitos foram criados em "${macroTemaAtualizado.nome}". A dose diária mostra até 5 por vez, priorizando o que for mais urgente — o resto entra nos próximos dias.`
+          ? `${totalConceitos} conceitos foram criados em "${macroTemaAtualizado.nome}".`
           : 'Suas perguntas já estão disponíveis para revisão.',
         [{ text: 'Ver revisão', onPress: () => router.replace('/home') }]
       );
