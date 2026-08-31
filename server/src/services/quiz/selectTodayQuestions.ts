@@ -2,8 +2,11 @@ import { supabase } from "../../config/supabase";
 import { HttpError } from "../../middlewares/errorHandler";
 import { QuizQuestionsData } from "../../schemas/quizQuestions.schema";
 
-// Dose diária: no máximo 5 perguntas (documento de MVP §8).
-export const DAILY_REVIEW_LIMIT = 5;
+// Dose diária: limite de 5 perguntas removido a pedido — a dose agora traz
+// todos os conceitos com revisão vencida hoje, sem cortar em 5. Código antigo
+// comentado abaixo pra reverter fácil se precisar (documento de MVP §8 previa
+// esse teto).
+// export const DAILY_REVIEW_LIMIT = 5;
 
 interface ConceitoRow {
   id: string;
@@ -58,7 +61,8 @@ function calculateConceptPriority(conceito: ConceitoRow, hoje: Date): number {
  */
 export async function selectTodayQuestions(
   userId: string,
-  limit = DAILY_REVIEW_LIMIT,
+  // limit = DAILY_REVIEW_LIMIT, // teto de 5 removido — ver comentário acima
+  limit?: number,
   macroTemaId?: string
 ): Promise<QuizQuestionsData> {
   const hoje = new Date();
@@ -81,7 +85,7 @@ export async function selectTodayQuestions(
     .lte("proxima_revisao", hojeISO);
 
   // Revisão sob demanda de uma disciplina específica (tela de detalhe) — mesma
-  // fórmula de prioridade e mesmo teto de 5, só que restrito a essa disciplina.
+  // fórmula de prioridade, só que restrito a essa disciplina (sem teto de 5 mais).
   if (macroTemaId) {
     query = query.eq("sub_temas.macro_temas.id", macroTemaId);
   }
@@ -94,7 +98,7 @@ export async function selectTodayQuestions(
 
   const conceitos = (data ?? []) as unknown as ConceitoRow[];
 
-  const priorizados = conceitos
+  const priorizadosOrdenados = conceitos
     .map((conceito) => ({
       conceito,
       pergunta: conceito.perguntas.find((p) => p.nivel === conceito.nivel_atual),
@@ -107,8 +111,12 @@ export async function selectTodayQuestions(
       pergunta,
       prioridade: calculateConceptPriority(conceito, hoje),
     }))
-    .sort((a, b) => b.prioridade - a.prioridade)
-    .slice(0, limit);
+    .sort((a, b) => b.prioridade - a.prioridade);
+
+  // Antes: .slice(0, limit) sempre aplicado (teto de 5 por padrão). Agora só
+  // corta se alguém passar um limit explícito e positivo — sem isso, a dose
+  // diária traz todos os conceitos vencidos.
+  const priorizados = limit && limit > 0 ? priorizadosOrdenados.slice(0, limit) : priorizadosOrdenados;
 
   const questoes = priorizados.map(({ conceito, pergunta }) => {
     const alternativas = pergunta.alternativas;

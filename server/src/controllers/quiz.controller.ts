@@ -1,14 +1,19 @@
 import { Request, Response } from "express";
 import { HttpError } from "../middlewares/errorHandler";
-import { DAILY_REVIEW_LIMIT, selectTodayQuestions } from "../services/quiz/selectTodayQuestions";
+// import { DAILY_REVIEW_LIMIT } from "../services/quiz/selectTodayQuestions"; // teto de 5 removido — ver selectTodayQuestions.ts
+import { selectTodayQuestions } from "../services/quiz/selectTodayQuestions";
 import { submitAnswer } from "../services/quiz/submitAnswer";
 
 // GET /api/quiz/today
 export async function getTodayQuiz(req: Request, res: Response) {
   const limitParam = req.query.limit;
-  const limitSolicitado = limitParam ? Number(limitParam) : DAILY_REVIEW_LIMIT;
-  // A dose diária nunca passa de 5 perguntas (documento de MVP §8), mesmo se pedirem mais.
-  const limit = limitSolicitado > 0 ? Math.min(limitSolicitado, DAILY_REVIEW_LIMIT) : DAILY_REVIEW_LIMIT;
+  // Antes: sempre clampado em DAILY_REVIEW_LIMIT (5), mesmo sem limitParam.
+  // const limitSolicitado = limitParam ? Number(limitParam) : DAILY_REVIEW_LIMIT;
+  // const limit = limitSolicitado > 0 ? Math.min(limitSolicitado, DAILY_REVIEW_LIMIT) : DAILY_REVIEW_LIMIT;
+  // Agora: sem limitParam, a dose diária vem inteira (sem teto); só corta se
+  // o cliente pedir um limit explícito e positivo.
+  const limitSolicitado = limitParam ? Number(limitParam) : undefined;
+  const limit = limitSolicitado && limitSolicitado > 0 ? limitSolicitado : undefined;
   const macroTemaId = req.query.macro_tema_id as string | undefined;
   const data = await selectTodayQuestions(req.user!.id, limit, macroTemaId);
   return res.status(200).json(data);
