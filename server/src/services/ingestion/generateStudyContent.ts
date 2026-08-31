@@ -64,17 +64,15 @@ const responseSchema = {
   required: ["subtemas"],
 };
 
-// Timeout por chamada individual ao Gemini — proteção só contra uma chamada
-// realmente travada (rede morta, sem resposta nenhuma), não contra geração
-// demorada — confirmado que uma geração de material grande pode legitimamente
-// passar de 27s (o valor anterior cortava gerações válidas no meio, gerando
-// "AbortError: This operation was aborted"). 50s dá bastante fôlego pro caso
-// normal. Em produção (Vercel Hobby, maxDuration 60s no vercel.json), ainda
-// existe o teto de 60s da própria plataforma — se UMA chamada já está perto
-// de 50s e ainda precisar do retry de schema (ver generateStudyContent), dá
-// pra estourar o limite da função lá. Não tem como resolver isso só com
-// timeout sem também aumentar o maxDuration (exige plano Pro, até 300s).
-const TIMEOUT_POR_CHAMADA_MS = 50000;
+// Timeout por chamada individual ao Gemini — DESATIVADO por enquanto.
+// Já subiu de 27s pra 50s antes por causa de "AbortError: This operation was
+// aborted" cortando gerações legítimas no meio (material grande = prompt
+// grande = mais tempo de geração), e voltou a acontecer com um material ainda
+// mais pesado. Até decidir a correção de verdade (gerar por subtema em vez de
+// tudo numa chamada só, ver conversa sobre arquitetura), a chamada fica sem
+// timeout próprio — só o teto de 60s do Vercel Hobby (maxDuration no
+// vercel.json) ainda pode cortar em produção, isso aqui não resolve esse lado.
+// const TIMEOUT_POR_CHAMADA_MS = 50000;
 
 async function callGemini(prompt: string): Promise<unknown> {
   let raw: string | undefined;
@@ -86,7 +84,7 @@ async function callGemini(prompt: string): Promise<unknown> {
       config: {
         responseMimeType: "application/json",
         responseSchema,
-        httpOptions: { timeout: TIMEOUT_POR_CHAMADA_MS },
+        // httpOptions: { timeout: TIMEOUT_POR_CHAMADA_MS },
       },
     });
     raw = response.text;

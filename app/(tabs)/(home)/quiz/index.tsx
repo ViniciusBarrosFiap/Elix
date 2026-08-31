@@ -9,8 +9,7 @@ import {
     Text,
     TouchableOpacity,
     View,
-    useWindowDimensions,
-    Animated, 
+    Animated,
     Button,
     Pressable
 } from 'react-native';
@@ -138,7 +137,6 @@ export default function QuizScreen() {
     [quizQuestions]
   );
 
-  const { width } = useWindowDimensions();
   const router = useRouter();
 
   const [selected, setSelected] = useState<string | null>(null);
@@ -167,10 +165,16 @@ export default function QuizScreen() {
   const isLastQuestion = currentQuestionIndex === quizQuestions.length - 1;
   const isFirstQuestion = currentQuestionIndex === 0;
 
+  // Fração de perguntas concluídas — precisa ser uma % da largura real da
+  // trilha (que é flex-1, varia com o layout), não um valor fixo em pixels.
+  // Antes tinha uma fórmula em px (largura da tela + offsets chutados) que
+  // não guardava relação nenhuma com a largura de fato renderizada da trilha,
+  // então a barra não acompanhava corretamente quantas perguntas existem —
+  // ficava simplesmente errada, principalmente agora que a dose diária não
+  // tem mais teto de 5 e o total de perguntas varia bem mais.
   const progress = amountOfQuestions > 0
     ? currentQuestionIndex / amountOfQuestions
     : 0;
-  const progressWidth = (width + 40 + 48 + 12) * progress;
 
   function handleSelect(id: string) {
     if (confirmed) return;
@@ -362,7 +366,7 @@ export default function QuizScreen() {
           <View
             className="h-full rounded-full"
             style={{
-              width: progressWidth,
+              width: `${progress * 100}%`,
               backgroundColor: C.primaryContainer,
             }}
           />

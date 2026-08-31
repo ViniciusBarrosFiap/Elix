@@ -11,7 +11,8 @@ export default function HomeStackLayout() {
       <Stack.Screen name="quiz/index" />
       <Stack.Screen name="quiz/result" />
       <Stack.Screen name="studyContents/index" />
-      <Stack.Screen name="studyContents/[id]" />
+      <Stack.Screen name="studyContents/[id]/index" />
+      <Stack.Screen name="studyContents/[id]/[materialId]" />
       <Stack.Screen name="studyContents/addContent" />
     </Stack>
   );

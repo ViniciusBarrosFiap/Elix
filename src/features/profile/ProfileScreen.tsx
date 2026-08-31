@@ -23,7 +23,7 @@ import { useUserDataStore } from "@/src/store/userDataStore";
 import { useStudyContentStore } from "@/src/store/studyContentStore";
 import { useQuizQuestionsStore } from "@/src/store/quizQuestionsStore";
 
-// Mesma paleta "The Cognitive Sanctuary" já usada em studyContents/[id].tsx —
+// Mesma paleta "The Cognitive Sanctuary" já usada em studyContents/[id]/index.tsx —
 // reaproveitada aqui pra essa tela ler como parte do mesmo app.
 const PRIMARY = "#8a2be2";
 const PRIMARY_LIGHT = "#dcb8ff";
@@ -108,7 +108,7 @@ export default function ProfileScreen() {
   const [apagando, setApagando] = useState(false);
 
   // Domínio médio real, calculado a partir do progresso já persistido de
-  // cada disciplina (mesmo campo mostrado em studyContents/[id].tsx) — não é
+  // cada disciplina (mesmo campo mostrado em studyContents/[id]/index.tsx) — não é
   // um número inventado, some pra 0 se ainda não há nenhuma disciplina.
   const dominioMedio = useMemo(() => {
     const macrotemas = studyContentData?.macrotemas ?? [];
