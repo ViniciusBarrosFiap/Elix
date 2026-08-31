@@ -128,10 +128,16 @@ const LiquidFillCard: FC<LiquidFillCardProps> = ({
   icon,
   progress = 0,
   status   = progress > 55 ? "Consolidado" : "Em reforço",
-  height   = 200,
+  height   = 140,
   style,
 }) => {
   const [cardWidth, setCardWidth] = useState<number>(0);
+
+  // Ícone/título escalam com a altura do card (não tamanho fixo) — sem isso,
+  // num card mais raso o ícone de 54px dominava o espaço todo.
+  const iconBoxSize = Math.min(54, Math.max(32, height * 0.38));
+  const titleFontSize = Math.min(16, Math.max(12, height * 0.11));
+  const centerGap = Math.max(4, height * 0.05);
   const progressRef = useRef<number>(progress);
 
   useEffect(() => {
@@ -180,15 +186,24 @@ const LiquidFillCard: FC<LiquidFillCardProps> = ({
         </BlurView>
       )}
 
-      <View style={styles.center} pointerEvents="none">
-        <BlurView intensity={30} tint="dark" style={styles.iconBox}>
+      {/* Centraliza só a partir de baixo da tag, não no card inteiro — senão,
+          em cards mais rasos, o bloco ícone+título brigava com a tag pelo
+          mesmo espaço em vez de simplesmente ficar mais próximo dela. */}
+      <View style={[styles.center, { gap: centerGap, top: status ? 34 : 0 }]} pointerEvents="none">
+        <BlurView
+          intensity={30}
+          tint="dark"
+          style={[styles.iconBox, { width: iconBoxSize, height: iconBoxSize, borderRadius: iconBoxSize * 0.28 }]}
+        >
           {typeof icon === "string" ? (
-            <Text style={styles.iconEmoji}>{icon}</Text>
+            <Text style={[styles.iconEmoji, { fontSize: iconBoxSize * 0.45 }]}>{icon}</Text>
           ) : (
-            icon ?? <Text style={styles.iconEmoji}>🧠</Text>
+            icon ?? <Text style={[styles.iconEmoji, { fontSize: iconBoxSize * 0.45 }]}>🧠</Text>
           )}
         </BlurView>
-        <Text style={styles.title}>{title}</Text>
+        <Text style={[styles.title, { fontSize: titleFontSize }]} numberOfLines={1}>
+          {title}
+        </Text>
       </View>
 
       {/* <View style={styles.pctBadge} pointerEvents="none">
