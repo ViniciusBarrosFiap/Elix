@@ -110,7 +110,7 @@ export default function HomeScreen() {
             }}
           />
    
-                 {/* <Insights /> */}
+            {/* <Insights /> */}
           <YourContents onPress={() => router.push("/(tabs)/studyContents")} />
           <ContentCards macroTemas={studyContentData?.macrotemas} />
         </ScrollView>
