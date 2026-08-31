@@ -8,7 +8,7 @@ import {
   Sparkles,
   TrendingUp,
 } from "lucide-react-native";
-import { MaterialTipo, StatusConceito, SubTema } from "@/src/types/studyContent";
+import { Conceito, MaterialTipo, StatusConceito, SubTema } from "@/src/types/studyContent";
 
 // Tokens do design system "The Cognitive Sanctuary" — compartilhados entre a
 // tela da disciplina e a tela de material, pra manter as duas com a mesma
@@ -97,4 +97,63 @@ export function classificarSubtema(subtema: SubTema): SubtemaProgressStatus {
   const nuncaRevisados = conceitos.filter((c) => c.performance.vezes_revisado === 0).length;
 
   return dominados === total ? "dominado" : nuncaRevisados === total ? "iniciando" : "em_reforco";
+}
+
+// ── Atraso e domínio, calculados no cliente ─────────────────────────────
+// Tudo aqui deriva de campos que a API já manda (proxima_revisao, status,
+// nivel_atual) — sem precisar de nenhum endpoint novo. Mesma fórmula de data
+// usada no backend (ver selectTodayQuestions.ts), pra não divergir.
+
+// Diferença em dias de calendário (UTC) entre hoje e proxima_revisao.
+// Positivo = já venceu há N dias; 0 = vence hoje; negativo = ainda faltam N dias.
+export function diasParaRevisao(proximaRevisaoISO: string): number {
+  const [ano, mes, dia] = proximaRevisaoISO.split("-").map(Number);
+  const proximaRevisaoUTC = Date.UTC(ano, mes - 1, dia);
+  const hoje = new Date();
+  const hojeUTC = Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth(), hoje.getUTCDate());
+  return Math.round((hojeUTC - proximaRevisaoUTC) / (1000 * 60 * 60 * 24));
+}
+
+// Um conceito conta como "vencido" (apareceria na dose de hoje) se ainda não
+// foi dominado e a data de próxima revisão já chegou.
+export function conceitoVencido(conceito: Pick<Conceito, "status" | "proxima_revisao">): boolean {
+  return conceito.status !== "dominado" && diasParaRevisao(conceito.proxima_revisao) >= 0;
+}
+
+// Legenda curta pro estado de revisão de um conceito — usada nos cards.
+export function legendaRevisao(conceito: Pick<Conceito, "proxima_revisao">): string {
+  const dias = diasParaRevisao(conceito.proxima_revisao);
+  if (dias > 0) return `atrasado há ${dias} ${dias === 1 ? "dia" : "dias"}`;
+  if (dias === 0) return "revisa hoje";
+  const faltam = -dias;
+  return `revisa em ${faltam} ${faltam === 1 ? "dia" : "dias"}`;
+}
+
+// Mesma escala de domínio por nível usada no backend (studyContent.service.ts)
+// pra derivar o % de domínio sem esperar o servidor recalcular.
+const NIVEL_MASTERY: Record<number, number> = { 1: 0, 2: 33, 3: 67 };
+
+export function conceitoMastery(conceito: Pick<Conceito, "status" | "nivel_atual">): number {
+  if (conceito.status === "dominado") return 100;
+  return NIVEL_MASTERY[conceito.nivel_atual] ?? 0;
+}
+
+export function averageMastery(conceitos: Pick<Conceito, "status" | "nivel_atual">[]): number {
+  if (conceitos.length === 0) return 0;
+  const soma = conceitos.reduce((acc, c) => acc + conceitoMastery(c), 0);
+  return Math.round(soma / conceitos.length);
+}
+
+// Mesma fórmula de prioridade da dose diária (selectTodayQuestions.ts no
+// backend): erro > atraso > foco > novidade, nessa ordem de peso. Usada tanto
+// no carrossel de Insights da Home quanto nos insights por disciplina.
+export function calcularPrioridade(
+  conceito: Pick<Conceito, "status" | "proxima_revisao" | "tag_foco" | "performance">
+): number {
+  const diasAtraso = Math.max(0, diasParaRevisao(conceito.proxima_revisao));
+  const bonusErro = conceito.performance.erros * 5;
+  const bonusAtraso = diasAtraso * 2;
+  const bonusFoco = conceito.tag_foco ? 3 : 0;
+  const bonusNovo = conceito.performance.vezes_revisado === 0 ? 1 : 0;
+  return bonusErro + bonusAtraso + bonusFoco + bonusNovo;
 }

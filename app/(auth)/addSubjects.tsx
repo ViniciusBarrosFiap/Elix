@@ -67,9 +67,9 @@ export default function DisciplineSelectionScreen() {
             />
         </View>
 
-        <View className="flex-1 px-6">
+        <View className="flex-1 px-6 justify-center">
             {/* Header */}
-            <View className="items-center mt-12 mb-10 px-2">
+            <View className="items-center mb-10 px-2">
             <Text
                 className="font-bold text-[#ffffff] text-4xl text-center"
                 style={{ lineHeight: 34, letterSpacing: -0.3 }}

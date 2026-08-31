@@ -1,8 +1,11 @@
-import { ChevronDown, Star, Zap } from "lucide-react-native";
-import { useState } from "react";
+import { BlurView } from "expo-blur";
+import { BottomSheetBackdrop, BottomSheetModal, BottomSheetScrollView } from "@gorhom/bottom-sheet";
+import { Check, ChevronDown, Clock, Star, Zap } from "lucide-react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
-import { STATUS_CONCEITO_LABEL, SubTema } from "@/src/types/studyContent";
+import { Conceito, STATUS_CONCEITO_LABEL, SubTema } from "@/src/types/studyContent";
 import {
+  MUTED,
   PRIMARY_LIGHT,
   STATUS_CONCEITO_COLOR,
   STATUS_CONCEITO_ICON,
@@ -11,23 +14,27 @@ import {
   SUBTEMA_STATUS_LABEL,
   SURFACE_CONCEITO,
   classificarSubtema,
+  conceitoVencido,
+  legendaRevisao,
 } from "./subtemaVisuals";
 
 // Lista de conceitos de um subtema — cards com status, nível e placar de
-// acertos/erros, reaproveitados tanto na tela de disciplina (antes) quanto
-// agora na tela dedicada do material.
-function ListaConceitos({ subtema }: { subtema: SubTema }) {
+// acertos/erros. Cada card é tocável e abre o detalhe (dica, perguntas,
+// explicações) — antes esse conteúdo só aparecia durante o quiz ao vivo.
+function ListaConceitos({ subtema, onSelect }: { subtema: SubTema; onSelect: (conceito: Conceito) => void }) {
   return (
     <View style={{ gap: 10 }}>
       {subtema.conceitos.map((conceito) => {
         const cor = STATUS_CONCEITO_COLOR[conceito.status];
         const StatusIcon = STATUS_CONCEITO_ICON[conceito.status];
         const dominado = conceito.status === "dominado";
+        const vencido = conceitoVencido(conceito);
 
         return (
-          <View
+          <Pressable
             key={conceito.id}
-            className="rounded-[18px] p-4"
+            onPress={() => onSelect(conceito)}
+            className="rounded-[18px] p-4 active:opacity-80"
             style={{
               backgroundColor: SURFACE_CONCEITO,
               borderWidth: 1,
@@ -119,28 +126,186 @@ function ListaConceitos({ subtema }: { subtema: SubTema }) {
                 </View>
               </View>
             </View>
-          </View>
+
+            {/* Quando revisa de novo — a informação que só existia escondida
+                no campo proxima_revisao, nunca mostrada em lugar nenhum. */}
+            {!dominado && (
+              <View className="flex-row items-center mt-2" style={{ gap: 4 }}>
+                <Clock size={11} color={vencido ? "#f0a030" : MUTED} />
+                <Text className="text-[11px]" style={{ color: vencido ? "#f0a030" : MUTED }}>
+                  {legendaRevisao(conceito)}
+                </Text>
+              </View>
+            )}
+          </Pressable>
         );
       })}
     </View>
   );
 }
 
+// Detalhe de um conceito — dica, as 3 perguntas (nível 1/2/3) com alternativas
+// e explicação. Esse conteúdo já existia no banco (vem junto no
+// GET /api/study-content) mas não tinha nenhum jeito de consultar fora do
+// quiz ao vivo.
+function ConceitoDetalheSheet({
+  conceito,
+  bottomSheetRef,
+}: {
+  conceito: Conceito | null;
+  bottomSheetRef: React.RefObject<BottomSheetModal | null>;
+}) {
+  const renderBackdrop = useCallback(
+    (props: any) => <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} pressBehavior="close" />,
+    []
+  );
+
+  const renderBackground = useCallback(
+    (props: any) => <BlurView style={[props.style, { borderRadius: 28, overflow: "hidden" }]} tint="dark" intensity={70} />,
+    []
+  );
+
+  return (
+    <BottomSheetModal
+      ref={bottomSheetRef}
+      index={0}
+      snapPoints={["75%", "95%"]}
+      enablePanDownToClose
+      backdropComponent={renderBackdrop}
+      backgroundComponent={renderBackground}
+      handleIndicatorStyle={{ backgroundColor: PRIMARY_LIGHT, width: 40 }}
+    >
+      <BottomSheetScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
+        {conceito && (
+          <>
+            <Text className="text-white text-lg font-bold mb-1">{conceito.nome}</Text>
+            <View className="flex-row items-center mb-4" style={{ gap: 10 }}>
+              <Text className="text-xs" style={{ color: MUTED }}>
+                Revisado {conceito.performance.vezes_revisado}{" "}
+                {conceito.performance.vezes_revisado === 1 ? "vez" : "vezes"}
+              </Text>
+              <Text className="text-xs" style={{ color: MUTED }}>·</Text>
+              <Text className="text-xs" style={{ color: MUTED }}>{legendaRevisao(conceito)}</Text>
+            </View>
+
+            {conceito.tag_foco && (
+              <View
+                className="flex-row items-center rounded-2xl px-3 py-2.5 mb-4"
+                style={{ backgroundColor: "rgba(240,160,48,0.1)", borderWidth: 1, borderColor: "rgba(240,160,48,0.25)" }}
+              >
+                <Star size={14} color="#f0a030" fill="#f0a030" />
+                <Text className="text-xs ml-2 flex-1" style={{ color: "#f0a030" }}>
+                  Marcado como foco — a IA identificou que este conceito precisa de mais atenção.
+                </Text>
+              </View>
+            )}
+
+            <Text
+              className="text-[11px] font-bold uppercase tracking-wider mb-3"
+              style={{ color: PRIMARY_LIGHT, opacity: 0.75 }}
+            >
+              Perguntas deste conceito
+            </Text>
+
+            <View style={{ gap: 14 }}>
+              {[...conceito.perguntas]
+                .sort((a, b) => a.nivel - b.nivel)
+                .map((pergunta) => (
+                  <View
+                    key={pergunta.id}
+                    className="rounded-2xl p-4"
+                    style={{ backgroundColor: SURFACE_CONCEITO, borderWidth: 1, borderColor: "rgba(255,255,255,0.06)" }}
+                  >
+                    <View className="flex-row items-center mb-2" style={{ gap: 6 }}>
+                      <Zap size={12} color={PRIMARY_LIGHT} fill={PRIMARY_LIGHT} />
+                      <Text className="text-[10px] font-bold uppercase tracking-wider" style={{ color: PRIMARY_LIGHT }}>
+                        Nível {pergunta.nivel}
+                      </Text>
+                    </View>
+
+                    <Text className="text-white text-sm font-medium mb-3">{pergunta.pergunta}</Text>
+
+                    <View style={{ gap: 6 }}>
+                      {(["A", "B", "C", "D"] as const).map((letra) => {
+                        const correta = letra === pergunta.resposta;
+                        return (
+                          <View
+                            key={letra}
+                            className="flex-row items-center rounded-xl px-3 py-2"
+                            style={{
+                              backgroundColor: correta ? "rgba(34,197,94,0.12)" : "rgba(255,255,255,0.03)",
+                              borderWidth: 1,
+                              borderColor: correta ? "rgba(34,197,94,0.35)" : "rgba(255,255,255,0.05)",
+                            }}
+                          >
+                            {correta ? (
+                              <Check size={13} color="#22c55e" />
+                            ) : (
+                              <View style={{ width: 13, height: 13 }} />
+                            )}
+                            <Text
+                              className="text-xs ml-2 flex-1"
+                              style={{ color: correta ? "#22c55e" : "rgba(255,255,255,0.7)" }}
+                            >
+                              {pergunta.alternativas[letra]}
+                            </Text>
+                          </View>
+                        );
+                      })}
+                    </View>
+
+                    <Text className="text-xs mt-3" style={{ color: MUTED, lineHeight: 17 }}>
+                      {pergunta.explicacao}
+                    </Text>
+                  </View>
+                ))}
+            </View>
+          </>
+        )}
+      </BottomSheetScrollView>
+    </BottomSheetModal>
+  );
+}
+
 interface SubtemaRowProps {
   subtema: SubTema;
   isLast: boolean;
+  // Contadores incrementados pelo pai pra forçar expandir/recolher todos os
+  // subtemas de uma vez (ver "Expandir tudo" no bottom sheet do material).
+  // Cada linha ainda controla seu próprio estado internamente fora disso.
+  expandAllSignal?: number;
+  collapseAllSignal?: number;
 }
 
 // Linha de subtema — expande/recolhe seus próprios conceitos com estado
 // interno (não depende de um Set controlado pelo pai). Separação entre
 // subtemas via divisória fina + barra de destaque colorida à esquerda quando
 // dominado, em vez de card próprio.
-export function SubtemaRow({ subtema, isLast }: SubtemaRowProps) {
+export function SubtemaRow({ subtema, isLast, expandAllSignal, collapseAllSignal }: SubtemaRowProps) {
   const [aberto, setAberto] = useState(false);
+  const [conceitoSelecionado, setConceitoSelecionado] = useState<Conceito | null>(null);
+  const detalheSheetRef = useRef<BottomSheetModal>(null);
+
+  useEffect(() => {
+    if (expandAllSignal !== undefined) setAberto(true);
+  }, [expandAllSignal]);
+
+  useEffect(() => {
+    if (collapseAllSignal !== undefined) setAberto(false);
+  }, [collapseAllSignal]);
+
   const status = classificarSubtema(subtema);
   const cor = SUBTEMA_STATUS_COLOR[status];
   const StatusIcon = SUBTEMA_STATUS_ICON[status];
   const totalmenteDominado = status === "dominado";
+
+  const totalConceitos = subtema.conceitos.length;
+  const vencidos = subtema.conceitos.filter(conceitoVencido).length;
+
+  const abrirDetalheConceito = (conceito: Conceito) => {
+    setConceitoSelecionado(conceito);
+    detalheSheetRef.current?.present();
+  };
 
   return (
     <View
@@ -176,9 +341,15 @@ export function SubtemaRow({ subtema, isLast }: SubtemaRowProps) {
           <Text className="text-white text-sm font-semibold mb-1" numberOfLines={1}>
             {subtema.nome}
           </Text>
-          <View className="self-start rounded-full px-2.5 py-0.5" style={{ backgroundColor: `${cor}22` }}>
-            <Text className="text-[10px] uppercase font-bold tracking-wider" style={{ color: cor }}>
-              {SUBTEMA_STATUS_LABEL[status]}
+          <View className="flex-row items-center" style={{ gap: 6 }}>
+            <View className="self-start rounded-full px-2.5 py-0.5" style={{ backgroundColor: `${cor}22` }}>
+              <Text className="text-[10px] uppercase font-bold tracking-wider" style={{ color: cor }}>
+                {SUBTEMA_STATUS_LABEL[status]}
+              </Text>
+            </View>
+            <Text className="text-[11px]" style={{ color: MUTED }}>
+              {totalConceitos} {totalConceitos === 1 ? "conceito" : "conceitos"}
+              {vencidos > 0 ? ` · ${vencidos} vencido${vencidos === 1 ? "" : "s"}` : ""}
             </Text>
           </View>
         </View>
@@ -200,9 +371,11 @@ export function SubtemaRow({ subtema, isLast }: SubtemaRowProps) {
             borderLeftColor: "rgba(255,255,255,0.07)",
           }}
         >
-          <ListaConceitos subtema={subtema} />
+          <ListaConceitos subtema={subtema} onSelect={abrirDetalheConceito} />
         </View>
       )}
+
+      <ConceitoDetalheSheet conceito={conceitoSelecionado} bottomSheetRef={detalheSheetRef} />
     </View>
   );
 }

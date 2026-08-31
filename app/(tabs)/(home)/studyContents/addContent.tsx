@@ -1,5 +1,5 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -82,6 +82,12 @@ const C = {
 };
 
 export default function AddContent() {
+  // Disciplina pré-selecionada quando chega a partir da tela de uma
+  // disciplina específica ("Adicionar material") — opcional, o fluxo normal
+  // (botão de upload flutuante da Home) chega sem esse param e a escolha
+  // continua manual no picker abaixo.
+  const { macroTemaId: macroTemaIdParam } = useLocalSearchParams<{ macroTemaId?: string }>();
+
   const [description, setDescription] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const pressAnim = useRef(new Animated.Value(1)).current;
@@ -111,7 +117,7 @@ export default function AddContent() {
   // Disciplina (macrotema) a que este material pertence — escolha obrigatória.
   const [macroTemas, setMacroTemas] = useState<MacroTemaListItem[]>([]);
   const [isLoadingMacroTemas, setIsLoadingMacroTemas] = useState(true);
-  const [selectedMacroTemaId, setSelectedMacroTemaId] = useState<string | null>(null);
+  const [selectedMacroTemaId, setSelectedMacroTemaId] = useState<string | null>(macroTemaIdParam ?? null);
   const [isMacroTemaPickerOpen, setIsMacroTemaPickerOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
 
