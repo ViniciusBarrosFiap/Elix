@@ -114,10 +114,17 @@ export function diasParaRevisao(proximaRevisaoISO: string): number {
   return Math.round((hojeUTC - proximaRevisaoUTC) / (1000 * 60 * 60 * 24));
 }
 
-// Um conceito conta como "vencido" (apareceria na dose de hoje) se ainda não
-// foi dominado e a data de próxima revisão já chegou.
+// Um conceito conta como "vencido" (apareceria na dose de hoje) se já foi
+// tocado ao menos uma vez (não é mais "novo"), ainda não foi dominado e a
+// data de próxima revisão já chegou. Sem o filtro de "novo", conceitos recém
+// criados (proxima_revisao já em dia por padrão) apareciam como vencidos
+// antes mesmo do primeiro contato.
 export function conceitoVencido(conceito: Pick<Conceito, "status" | "proxima_revisao">): boolean {
-  return conceito.status !== "dominado" && diasParaRevisao(conceito.proxima_revisao) >= 0;
+  return (
+    conceito.status !== "dominado" &&
+    conceito.status !== "novo" &&
+    diasParaRevisao(conceito.proxima_revisao) >= 0
+  );
 }
 
 // Legenda curta pro estado de revisão de um conceito — usada nos cards.
