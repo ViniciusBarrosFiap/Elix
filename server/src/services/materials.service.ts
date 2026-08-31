@@ -3,6 +3,7 @@ import { env } from "../config/env";
 import { HttpError } from "../middlewares/errorHandler";
 import { detectKind, extractText } from "./ingestion/extractText";
 import { fetchYoutubeTranscript } from "./ingestion/fetchYoutubeTranscript";
+import { fetchYoutubeTitle } from "./ingestion/fetchYoutubeTitle";
 import { fetchNotionPageText } from "./ingestion/fetchNotionPageText";
 import { getAccessToken as getNotionAccessToken } from "./notion/notion.service";
 import { generateStudyContent } from "./ingestion/generateStudyContent";
@@ -213,7 +214,7 @@ export interface MaterialViewUrl {
 export async function getMaterialViewUrl(materialId: string, userId: string): Promise<MaterialViewUrl> {
   const { data: material, error } = await supabase
     .from("materials")
-    .select("nome_arquivo, mime_type, storage_path")
+    .select("nome_arquivo, mime_type, storage_path, url")
     .eq("id", materialId)
     .eq("user_id", userId)
     .single();
@@ -223,7 +224,9 @@ export async function getMaterialViewUrl(materialId: string, userId: string): Pr
   }
 
   if (material.mime_type === "video/youtube") {
-    return { tipo: "youtube", url: material.nome_arquivo as string };
+    // Materiais criados antes da coluna `url` existir guardavam o link em
+    // nome_arquivo — mantém funcionando pros dois casos.
+    return { tipo: "youtube", url: (material.url as string | null) ?? (material.nome_arquivo as string) };
   }
 
   if (material.mime_type === "application/vnd.notion.page") {
@@ -254,12 +257,17 @@ export async function processYoutubeLink({
   await assertMacroTemaBelongsToUser(macroTemaId, userId);
   const disciplinaNome = await getMacroTemaNome(macroTemaId);
 
+  // Título de exibição buscado via oEmbed (best-effort) — se falhar, cai de
+  // volta pro link, que é sempre válido como nome (só menos legível).
+  const tituloVideo = await fetchYoutubeTitle(url);
+
   const { data: material, error: insertError } = await supabase
     .from("materials")
     .insert({
       user_id: userId,
       macro_tema_id: macroTemaId,
-      nome_arquivo: url,
+      nome_arquivo: tituloVideo ?? url,
+      url,
       mime_type: "video/youtube",
       tags,
       status: "processando",

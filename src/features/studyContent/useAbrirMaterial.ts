@@ -4,19 +4,16 @@ import { MaterialsRepository } from "@/src/services/materials/materials.reposito
 import { SubTemaMaterial } from "@/src/types/studyContent";
 
 /**
- * Abre o material original: link direto pro YouTube, ou uma URL assinada
- * (buscada na hora) pro documento enviado. Notion não tem link direto —
+ * Abre o material original: link do YouTube, ou uma URL assinada (buscada na
+ * hora) pro documento enviado — sempre resolvido pelo backend, já que
+ * `material.nome` agora é o título de exibição, não a URL (ver
+ * getMaterialViewUrl em materials.service.ts). Notion não tem link direto —
  * quem chama decide se mostra o botão (ver material.tipo !== "notion").
  */
 export function useAbrirMaterial() {
   const [abrindoId, setAbrindoId] = useState<string | null>(null);
 
   const abrirMaterial = async (material: SubTemaMaterial) => {
-    if (material.tipo === "youtube") {
-      Linking.openURL(material.nome);
-      return;
-    }
-
     setAbrindoId(material.id);
     try {
       const { url } = await MaterialsRepository.getViewUrl(material.id);
