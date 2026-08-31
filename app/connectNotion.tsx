@@ -9,8 +9,9 @@ import {
   RefreshCw,
   RotateCw,
 } from 'lucide-react-native';
-import React from 'react';
+import React, { useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Pressable,
   ScrollView,
@@ -20,6 +21,7 @@ import {
   Image
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { NotionService } from '@/src/services/notion/notion.service';
 
 type FeatureItemProps = {
   icon: React.ReactNode;
@@ -53,6 +55,36 @@ function FeatureItem({ icon, title, description, isLast }: FeatureItemProps) {
 }
 
 export default function ConnectNotionScreen() {
+  const [isConnecting, setIsConnecting] = useState(false);
+
+  // Mesmo fluxo do botão "Importar do Notion" em addContent.tsx: só dispara o
+  // OAuth se ainda não estiver conectado. Aqui não há seletor de páginas —
+  // depois de conectar, a escolha de quais páginas importar acontece na tela
+  // de adicionar material.
+  const handleConnect = async () => {
+    setIsConnecting(true);
+    try {
+      const status = await NotionService.getStatus();
+
+      if (!status.connected) {
+        const resultado = await NotionService.connect();
+        if (!resultado.ok) {
+          if (resultado.reason && resultado.reason !== 'cancelado') {
+            Alert.alert('Não foi possível conectar', 'Tente novamente em alguns instantes.');
+          }
+          return;
+        }
+      }
+
+      router.replace('/(tabs)/studyContents/addContent');
+    } catch (error) {
+      const mensagem = error instanceof Error ? error.message : 'Não foi possível conectar ao Notion agora.';
+      Alert.alert('Erro', mensagem);
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-[#16111b]" edges={['top', 'bottom']}>
       <StatusBar barStyle="light-content" />
@@ -169,12 +201,8 @@ export default function ConnectNotionScreen() {
 
         <Pressable
           className="active:opacity-90"
-          onPress={() =>
-            Alert.alert(
-              'Em breve',
-              'A integração com o Notion ainda está em desenvolvimento. Por enquanto, envie seus materiais direto pelo app.'
-            )
-          }
+          onPress={handleConnect}
+          disabled={isConnecting}
         >
           <LinearGradient
             colors={['#8a2be2', '#5d3587']}
@@ -183,10 +211,13 @@ export default function ConnectNotionScreen() {
             style={{ borderRadius: 999 }}
           >
             <View className="flex-row items-center justify-center py-4 rounded-full">
-              
-              <Text className="font-semibold text-[#ffffff] text-[15px]">
-                Conectar 
-              </Text>
+              {isConnecting ? (
+                <ActivityIndicator color="#ffffff" />
+              ) : (
+                <Text className="font-semibold text-[#ffffff] text-[15px]">
+                  Conectar
+                </Text>
+              )}
             </View>
           </LinearGradient>
         </Pressable>
