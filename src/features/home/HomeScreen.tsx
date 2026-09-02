@@ -10,6 +10,7 @@ import { Animated, ScrollView, Text, TouchableOpacity, View } from "react-native
 import Header from "./components/Header";
 import DoseCard from "./components/DoseCard";
 import Insights from "./components/Insights";
+import ProgressSection from "./components/ProgressSection";
 import YourContents from "./components/YourContents";
 import ContentCards from "./components/ContentCards";
 import UploadButton from "./components/UploadButton";
@@ -109,7 +110,9 @@ export default function HomeScreen() {
               router.push("/(tabs)/quiz")
             }}
           />
-   
+
+          {/* <ProgressSection /> */}
+
             {/* <Insights /> */}
           <YourContents onPress={() => router.push("/(tabs)/studyContents")} />
           <ContentCards macroTemas={studyContentData?.macrotemas} />
