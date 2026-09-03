@@ -11,7 +11,8 @@ import {
     View,
     Animated,
     Button,
-    Pressable
+    Pressable,
+    PanResponder,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { QuizQuestionsService } from '@/src/services/quiz/quiz.service';
@@ -53,6 +54,221 @@ function calcularElixir(nivel: 1 | 2 | 3, acertou: boolean): number {
 // o Bottom Sheet abre sozinho por causa do erro, não quando ele abre por
 // vontade própria (botão "?").
 const COOLDOWN_JUSTIFICATIVA_SEGUNDOS = 8;
+
+// ─── Slider de confiança ───
+// Substitui o botão "Confirmar": o aluno arrasta (ou toca direto num ponto)
+// pro nível de confiança que tem na resposta escolhida. Soltar o dedo NÃO
+// confirma na hora — trava 1s (pra evitar que o próprio gesto de soltar seja
+// lido como um toque de confirmação sem querer) e só depois disso um toque
+// no slider envia a resposta.
+const CONFIDENCE_COOLDOWN_MS = 250;
+// Quanto o dedo precisa se mover (px) durante o cooldown pra contar como "o
+// usuário voltou a arrastar" em vez de "só tocou pra confirmar".
+const CONFIDENCE_DRAG_THRESHOLD = 4;
+
+function nivelConfiancaLabel(nivel: number): string {
+  if (nivel < 0.34) return 'Pouca confiança';
+  if (nivel < 0.67) return 'Confiança média';
+  return 'Muita confiança';
+}
+
+function nivelConfiancaCor(nivel: number): string {
+  if (nivel < 0.34) return '#ff6b6b';
+  if (nivel < 0.67) return '#f0a030';
+  return '#00c896';
+}
+
+// Seta em vaivém indicando a direção do arrasto — substitui o ícone estático
+// "move", que não deixava claro que era pra deslizar (parecia só decoração).
+function SwipeHintArrow() {
+  const anim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(anim, { toValue: 1, duration: 550, useNativeDriver: true }),
+        Animated.timing(anim, { toValue: 0, duration: 550, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [anim]);
+
+  return (
+    <View style={{ flexDirection: 'row', gap: -2 }}>
+      {[0, 1].map((i) => (
+        <Animated.View
+          key={i}
+          style={{
+            transform: [
+              {
+                translateX: anim.interpolate({ inputRange: [0, 1], outputRange: [0, 6] }),
+              },
+            ],
+            opacity: anim.interpolate({
+              inputRange: [0, 1],
+              outputRange: i === 0 ? [0.35, 1] : [1, 0.35],
+            }),
+          }}
+        >
+          <Feather name="chevron-right" size={13} color={C.onSurfaceVariant} />
+        </Animated.View>
+      ))}
+    </View>
+  );
+}
+
+function ConfidenceSlider({
+  disabled,
+  onSubmit,
+  onReadyChange,
+}: {
+  disabled: boolean;
+  onSubmit: (nivel: number) => void;
+  onReadyChange?: (pronto: boolean) => void;
+}) {
+  const [nivel, setNivel] = useState(0.5);
+  const [podeEnviar, setPodeEnviarState] = useState(false);
+  const pan = useRef(new Animated.Value(0.5)).current;
+  const nivelRef = useRef(0.5);
+  const podeEnviarRef = useRef(false);
+  const trackWidthRef = useRef(0);
+  const trackPageXRef = useRef(0);
+  const trackRef = useRef<View>(null);
+  const cooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Refs "espelhando" as props mais recentes — o PanResponder é criado uma
+  // única vez (useRef), então sem isso os handlers ficariam presos nos
+  // valores de disabled/onSubmit do primeiro render.
+  const disabledRef = useRef(disabled);
+  disabledRef.current = disabled;
+  const onSubmitRef = useRef(onSubmit);
+  onSubmitRef.current = onSubmit;
+  const onReadyChangeRef = useRef(onReadyChange);
+  onReadyChangeRef.current = onReadyChange;
+
+  useEffect(() => {
+    return () => {
+      if (cooldownTimerRef.current) clearTimeout(cooldownTimerRef.current);
+    };
+  }, []);
+
+  // Avisa o pai (que mostra a dica acima do slider) sempre que o "pronto pra
+  // confirmar" muda — é o que troca "Deslize..." por "Clique para confirmar".
+  const setPodeEnviar = (v: boolean) => {
+    podeEnviarRef.current = v;
+    setPodeEnviarState(v);
+    onReadyChangeRef.current?.(v);
+  };
+
+  const iniciarCooldown = () => {
+    if (cooldownTimerRef.current) clearTimeout(cooldownTimerRef.current);
+    setPodeEnviar(false);
+    cooldownTimerRef.current = setTimeout(() => setPodeEnviar(true), CONFIDENCE_COOLDOWN_MS);
+  };
+
+  const atualizarNivel = (pageX: number) => {
+    if (trackWidthRef.current <= 0) return;
+    const clamped = Math.max(0, Math.min(1, (pageX - trackPageXRef.current) / trackWidthRef.current));
+    nivelRef.current = clamped;
+    pan.setValue(clamped);
+    setNivel(clamped);
+  };
+
+  const medirTrack = () => {
+    trackRef.current?.measure((_x, _y, width, _height, pageX) => {
+      trackPageXRef.current = pageX;
+      trackWidthRef.current = width;
+    });
+  };
+
+  // Só vira "arraste de verdade" (e cancela o toque de confirmação) se o
+  // dedo se mover mais que CONFIDENCE_DRAG_THRESHOLD durante o gesto atual.
+  const arrastandoRef = useRef(false);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => !disabledRef.current,
+      onMoveShouldSetPanResponder: () => !disabledRef.current,
+      onPanResponderGrant: (evt) => {
+        arrastandoRef.current = false;
+        medirTrack();
+        // Enquanto ainda não passou o cooldown, o toque já reposiciona o
+        // nível normalmente. Depois do cooldown, só reposiciona se o gesto
+        // virar um arraste de verdade (ver onPanResponderMove) — um toque
+        // parado deve confirmar, não pular o valor pro ponto tocado.
+        if (!podeEnviarRef.current) {
+          atualizarNivel(evt.nativeEvent.pageX);
+        }
+      },
+      onPanResponderMove: (evt, gestureState) => {
+        const moveu =
+          Math.abs(gestureState.dx) > CONFIDENCE_DRAG_THRESHOLD ||
+          Math.abs(gestureState.dy) > CONFIDENCE_DRAG_THRESHOLD;
+
+        if (podeEnviarRef.current) {
+          // Já estava pronto pra confirmar, mas o usuário voltou a
+          // deslizar — cancela o modo "toque confirma" e passa a mexer no
+          // nível normalmente, como se fosse um arraste novo.
+          if (!moveu) return;
+          arrastandoRef.current = true;
+          if (cooldownTimerRef.current) clearTimeout(cooldownTimerRef.current);
+          setPodeEnviar(false);
+        } else if (moveu) {
+          arrastandoRef.current = true;
+        }
+
+        atualizarNivel(evt.nativeEvent.pageX);
+      },
+      onPanResponderRelease: () => {
+        if (disabledRef.current) return;
+
+        // Só confirma num toque parado (sem arrastar) depois que o cooldown
+        // já passou. Qualquer arraste — novo ou retomado — reinicia o
+        // cooldown em vez de enviar.
+        if (podeEnviarRef.current && !arrastandoRef.current) {
+          onSubmitRef.current(nivelRef.current);
+          return;
+        }
+        iniciarCooldown();
+      },
+    })
+  ).current;
+
+  const cor = disabled ? C.outlineVariant : nivelConfiancaCor(nivel);
+
+  const label = disabled
+    ? 'Selecione uma opção'
+    : podeEnviar
+      ? `Confirmar`
+      : nivelConfiancaLabel(nivel);
+
+  return (
+    <View
+      ref={trackRef}
+      onLayout={medirTrack}
+      {...(disabled ? {} : panResponder.panHandlers)}
+      style={[styles.confidenceTrack, disabled && styles.confidenceTrackDisabled]}
+    >
+      {!disabled && (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.confidenceFill,
+            {
+              backgroundColor: cor,
+              width: pan.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }),
+            },
+          ]}
+        />
+      )}
+
+      <Text style={styles.confidenceLabel} pointerEvents="none" numberOfLines={1}>
+        {label}
+      </Text>
+    </View>
+  );
+}
 
 export default function QuizScreen() {
   const { macroTemaId } = useLocalSearchParams<{ macroTemaId?: string }>();
@@ -145,6 +361,9 @@ export default function QuizScreen() {
   const [acertos, setAcertos] = useState(0);
   const [erros, setErros] = useState(0);
   const [elixirTotal, setElixirTotal] = useState(0);
+  // Espelha o "pronto pra confirmar" do ConfidenceSlider — só existe pra
+  // trocar o texto da dica acima do slider (ver onReadyChange).
+  const [prontoParaConfirmar, setProntoParaConfirmar] = useState(false);
 
   // ─── Animação do Líquido ───
   const liquidAnim = useRef(new Animated.Value(0)).current;
@@ -185,39 +404,46 @@ export default function QuizScreen() {
     setCurrentQuestionIndex(index);
     setSelected(null);
     setConfirmed(false);
+    setProntoParaConfirmar(false);
+  }
+
+  // Registro local do nível de confiança de cada resposta (0 a 1) — ainda não
+  // enviado ao backend (a API de resposta só aceita pergunta_id/resposta),
+  // mas já fica capturado aqui pra um uso futuro sem precisar mexer no fluxo
+  // do slider de novo.
+  const confiancasRef = useRef<number[]>([]);
+
+  function confirmarResposta(nivelConfianca: number) {
+    if (confirmed || !selected) return;
+
+    confiancasRef.current.push(nivelConfianca);
+    setConfirmed(true);
+
+    const acertou = selected === currentQuestion.id_gabarito;
+    const ganho = calcularElixir(currentQuestion.nivel, acertou);
+    setElixirTotal((prev) => prev + ganho);
+    flaskRef.current?.gain(ganho, `+${ganho} XP`);
+
+    if (acertou) {
+      setAcertos((prev) => prev + 1);
+    } else {
+      setErros((prev) => prev + 1);
+      // Se a resposta selecionada for diferente do gabarito (resposta errada),
+      // abre o Bottom Sheet automaticamente e trava o fechamento por alguns
+      // segundos — sem isso, dava pra bater o dedo e sair sem ler nada.
+      bottomSheetModalRef.current?.present();
+      iniciarCooldownJustificativa();
+    }
+
+    // Atualiza o progresso real do conceito no backend (nível, próxima
+    // revisão, elixir). Não bloqueia a UI — o feedback já é local/imediato;
+    // se a chamada falhar, só o progresso persistido fica desatualizado.
+    QuizQuestionsService.submitAnswer(currentQuestion.id, selected).catch((err) => {
+      console.error("Falha ao registrar resposta:", err);
+    });
   }
 
   function handleNext() {
-    if (!confirmed) {
-      setConfirmed(true);
-
-      const acertou = selected === currentQuestion.id_gabarito;
-      const ganho = calcularElixir(currentQuestion.nivel, acertou);
-      setElixirTotal((prev) => prev + ganho);
-      flaskRef.current?.gain(ganho, `+${ganho} XP`);
-
-      if (acertou) {
-        setAcertos((prev) => prev + 1);
-      } else {
-        setErros((prev) => prev + 1);
-        // Se a resposta selecionada for diferente do gabarito (resposta errada),
-        // abre o Bottom Sheet automaticamente e trava o fechamento por alguns
-        // segundos — sem isso, dava pra bater o dedo e sair sem ler nada.
-        bottomSheetModalRef.current?.present();
-        iniciarCooldownJustificativa();
-      }
-
-      // Atualiza o progresso real do conceito no backend (nível, próxima
-      // revisão, elixir). Não bloqueia a UI — o feedback já é local/imediato;
-      // se a chamada falhar, só o progresso persistido fica desatualizado.
-      if (selected) {
-        QuizQuestionsService.submitAnswer(currentQuestion.id, selected).catch((err) => {
-          console.error("Falha ao registrar resposta:", err);
-        });
-      }
-      return;
-    }
-
     if (isLastQuestion) {
       router.push({
         pathname: '/(tabs)/quiz/result',
@@ -474,27 +700,40 @@ export default function QuizScreen() {
         </ScrollView>
       </View>
 
-      <View style={[styles.footer, { flexDirection: 'row', gap: 12 }]}>
-        <TouchableOpacity
-          style={[
-            styles.nextButton,
-            { flex: 1 },
-            !selected && !confirmed && styles.nextButtonDisabled
-          ]}
-          activeOpacity={0.85}
-          disabled={!selected && !confirmed}
-          onPress={handleNext}
-        >
-          <Text style={styles.nextButtonText}>
-            {!selected && !confirmed
-              ? 'Selecione uma opção'
-              : !confirmed
-                ? 'Confirmar'
-                : isLastQuestion
-                  ? 'Finalizar'
-                  : 'Próxima →'}
-          </Text>
-        </TouchableOpacity>
+      <View style={styles.footer}>
+        {!confirmed && selected && (
+          <View style={styles.confidenceHint}>
+            {prontoParaConfirmar ? (
+              <Feather name="check-circle" size={13} color={C.onSurfaceVariant} />
+            ) : (
+              <SwipeHintArrow />
+            )}
+            <Text style={styles.confidenceHintText}>
+              {prontoParaConfirmar
+                ? 'Clique para confirmar'
+                : 'Deslize para o lado para indicar confiança'}
+            </Text>
+          </View>
+        )}
+        <View style={{ flexDirection: 'row', gap: 12 }}>
+        {!confirmed ? (
+          <ConfidenceSlider
+            key={currentQuestion.id}
+            disabled={!selected}
+            onSubmit={confirmarResposta}
+            onReadyChange={setProntoParaConfirmar}
+          />
+        ) : (
+          <TouchableOpacity
+            style={[styles.nextButton, { flex: 1 }]}
+            activeOpacity={0.85}
+            onPress={handleNext}
+          >
+            <Text style={styles.nextButtonText}>
+              {isLastQuestion ? 'Finalizar' : 'Próxima →'}
+            </Text>
+          </TouchableOpacity>
+        )}
         {confirmed && (
           <TouchableOpacity
             onPress={() => bottomSheetModalRef.current?.present()}
@@ -505,7 +744,7 @@ export default function QuizScreen() {
             <Text style={styles.helpButtonText}>?</Text>
           </TouchableOpacity>
         )}
-
+        </View>
       </View>
 
      <BottomSheetModal
@@ -737,7 +976,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: 16,
     paddingTop: 12,
-    backgroundColor: C.surface, 
+    backgroundColor: C.surface,
+  },
+  confidenceHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginBottom: 10,
+  },
+  confidenceHintText: {
+    fontFamily: 'Manrope_500Medium',
+    fontSize: 12,
+    color: C.onSurfaceVariant,
   },
   nextButton: {
     height: 58,
@@ -751,13 +1002,34 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 8,
   },
-  nextButtonDisabled: {
-    opacity: 0.45,
-  },
   nextButtonText: {
     fontFamily: 'Manrope_700Bold',
     fontSize: 17,
     color: C.onPrimaryContainer,
+  },
+  confidenceTrack: {
+    flex: 1,
+    height: 58,
+    borderRadius: 999,
+    backgroundColor: C.surfaceContainerHigh,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  confidenceTrackDisabled: {
+    opacity: 0.45,
+  },
+  confidenceFill: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    opacity: 0.28,
+  },
+  confidenceLabel: {
+    fontFamily: 'Manrope_700Bold',
+    fontSize: 15,
+    color: C.onSurface,
   },
   helpButton: {
     width: 58,
