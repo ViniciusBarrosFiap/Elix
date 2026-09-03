@@ -3,8 +3,10 @@ import { BottomSheetBackdrop, BottomSheetModal, BottomSheetScrollView } from "@g
 import { Check, ChevronDown, Clock, Star, Zap } from "lucide-react-native";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
-import { Conceito, STATUS_CONCEITO_LABEL, SubTema } from "@/src/types/studyContent";
+import { Conceito, SubTema } from "@/src/types/studyContent";
 import {
+  COR_ATRASADO,
+  COR_REVISA_HOJE,
   MUTED,
   PRIMARY_LIGHT,
   STATUS_CONCEITO_COLOR,
@@ -14,8 +16,8 @@ import {
   SUBTEMA_STATUS_LABEL,
   SURFACE_CONCEITO,
   classificarSubtema,
-  conceitoVencido,
   legendaRevisao,
+  revisaoUrgencia,
 } from "./subtemaVisuals";
 
 // Lista de conceitos de um subtema — cards com status, nível e placar de
@@ -28,7 +30,8 @@ function ListaConceitos({ subtema, onSelect }: { subtema: SubTema; onSelect: (co
         const cor = STATUS_CONCEITO_COLOR[conceito.status];
         const StatusIcon = STATUS_CONCEITO_ICON[conceito.status];
         const dominado = conceito.status === "dominado";
-        const vencido = conceitoVencido(conceito);
+        const urgencia = revisaoUrgencia(conceito);
+        const corUrgencia = urgencia === "atrasado" ? COR_ATRASADO : COR_REVISA_HOJE;
 
         return (
           <Pressable
@@ -69,10 +72,24 @@ function ListaConceitos({ subtema, onSelect }: { subtema: SubTema; onSelect: (co
                   {conceito.nome}
                 </Text>
               </View>
-              <View className="px-2.5 py-1 rounded-full" style={{ backgroundColor: `${cor}22` }}>
-                <Text className="text-[10px] uppercase font-bold tracking-wider" style={{ color: cor }}>
-                  {STATUS_CONCEITO_LABEL[conceito.status]}
-                </Text>
+              <View className="flex-row items-center" style={{ gap: 6 }}>
+                {/* Tag de urgência — antes essa informação só aparecia meio
+                    escondida na linha de baixo (texto + ícone de relógio);
+                    como badge ao lado do status, salta aos olhos direto na
+                    lista, sem precisar ler cada card. Atrasado (vermelho) e
+                    "vence hoje" (azul) são estados diferentes — só o primeiro
+                    é de fato uma pendência acumulada. */}
+                {urgencia && (
+                  <View
+                    className="flex-row items-center px-2.5 py-1 rounded-full"
+                    style={{ gap: 4, backgroundColor: `${corUrgencia}29`, borderWidth: 1, borderColor: `${corUrgencia}66` }}
+                  >
+                    <Clock size={10} color={corUrgencia} />
+                    <Text className="text-[10px] uppercase font-bold tracking-wider" style={{ color: corUrgencia }}>
+                      {urgencia === "atrasado" ? "Vencido" : "Revisa hoje"}
+                    </Text>
+                  </View>
+                )}
               </View>
             </View>
 
@@ -108,31 +125,15 @@ function ListaConceitos({ subtema, onSelect }: { subtema: SubTema; onSelect: (co
                   })}
                 </View>
               </View>
-
-              {/* Placar de acertos/erros — cor em vez de cinza neutro, pra ler
-                  como pontuação e não como estatística morta. */}
-              <View className="flex-row items-center" style={{ gap: 8 }}>
-                <View className="flex-row items-center" style={{ gap: 3 }}>
-                  <View style={{ width: 5, height: 5, borderRadius: 2.5, backgroundColor: "#22c55e" }} />
-                  <Text className="text-[11px] font-semibold" style={{ color: "#22c55e" }}>
-                    {conceito.performance.acertos}
-                  </Text>
-                </View>
-                <View className="flex-row items-center" style={{ gap: 3 }}>
-                  <View style={{ width: 5, height: 5, borderRadius: 2.5, backgroundColor: "#ff6b6b" }} />
-                  <Text className="text-[11px] font-semibold" style={{ color: "#ff6b6b" }}>
-                    {conceito.performance.erros}
-                  </Text>
-                </View>
-              </View>
             </View>
 
-            {/* Quando revisa de novo — a informação que só existia escondida
-                no campo proxima_revisao, nunca mostrada em lugar nenhum. */}
-            {!dominado && (
+            {/* Quando revisa de novo — só aparece aqui embaixo se não tem
+                urgência (senão duplicaria a tag "Vencido"/"Revisa hoje" lá
+                em cima com a mesma informação). */}
+            {!dominado && !urgencia && (
               <View className="flex-row items-center mt-2" style={{ gap: 4 }}>
-                <Clock size={11} color={vencido ? "#f0a030" : MUTED} />
-                <Text className="text-[11px]" style={{ color: vencido ? "#f0a030" : MUTED }}>
+                <Clock size={11} color={MUTED} />
+                <Text className="text-[11px]" style={{ color: MUTED }}>
                   {legendaRevisao(conceito)}
                 </Text>
               </View>
@@ -300,7 +301,9 @@ export function SubtemaRow({ subtema, isLast, expandAllSignal, collapseAllSignal
   const totalmenteDominado = status === "dominado";
 
   const totalConceitos = subtema.conceitos.length;
-  const vencidos = subtema.conceitos.filter(conceitoVencido).length;
+  const urgencias = subtema.conceitos.map(revisaoUrgencia);
+  const atrasados = urgencias.filter((u) => u === "atrasado").length;
+  const revisamHoje = urgencias.filter((u) => u === "hoje").length;
 
   const abrirDetalheConceito = (conceito: Conceito) => {
     setConceitoSelecionado(conceito);
@@ -347,9 +350,33 @@ export function SubtemaRow({ subtema, isLast, expandAllSignal, collapseAllSignal
                 {SUBTEMA_STATUS_LABEL[status]}
               </Text>
             </View>
+            {/* Mesmas tags de urgência (cor + ícone) usadas nos cards de
+                conceito — antes vinha tudo junto num "N vencidos" só, sem
+                separar quem já atrasou de quem só vence hoje. */}
+            {atrasados > 0 && (
+              <View
+                className="flex-row items-center self-start rounded-full px-2.5 py-0.5"
+                style={{ gap: 4, backgroundColor: `${COR_ATRASADO}29`, borderWidth: 1, borderColor: `${COR_ATRASADO}66` }}
+              >
+                <Clock size={10} color={COR_ATRASADO} />
+                <Text className="text-[10px] uppercase font-bold tracking-wider" style={{ color: COR_ATRASADO }}>
+                  {atrasados} vencido{atrasados === 1 ? "" : "s"}
+                </Text>
+              </View>
+            )}
+            {revisamHoje > 0 && (
+              <View
+                className="flex-row items-center self-start rounded-full px-2.5 py-0.5"
+                style={{ gap: 4, backgroundColor: `${COR_REVISA_HOJE}29`, borderWidth: 1, borderColor: `${COR_REVISA_HOJE}66` }}
+              >
+                <Clock size={10} color={COR_REVISA_HOJE} />
+                <Text className="text-[10px] uppercase font-bold tracking-wider" style={{ color: COR_REVISA_HOJE }}>
+                  {revisamHoje} hoje
+                </Text>
+              </View>
+            )}
             <Text className="text-[11px]" style={{ color: MUTED }}>
               {totalConceitos} {totalConceitos === 1 ? "conceito" : "conceitos"}
-              {vencidos > 0 ? ` · ${vencidos} vencido${vencidos === 1 ? "" : "s"}` : ""}
             </Text>
           </View>
         </View>

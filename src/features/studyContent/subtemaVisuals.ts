@@ -114,17 +114,36 @@ export function diasParaRevisao(proximaRevisaoISO: string): number {
   return Math.round((hojeUTC - proximaRevisaoUTC) / (1000 * 60 * 60 * 24));
 }
 
+// Urgência de revisão de um conceito, distinguindo "vence hoje" (ainda dentro
+// do prazo) de "atrasado" (o prazo já passou) — antes os dois caíam juntos
+// em "vencido", sem diferenciar quem só está pronto pra revisar hoje de quem
+// já ficou pra trás. null = nem chegou a data ainda, ou não se aplica (novo
+// nunca revisado / já dominado).
+export type RevisaoUrgencia = "atrasado" | "hoje" | null;
+
+// Cores únicas de urgência — usadas em toda a tela de disciplina (banner do
+// topo, badge do material, tag do subtema, tag do conceito) pra "vencido"
+// significar sempre a mesma coisa em vez de cada lugar inventar seu próprio
+// laranja/vermelho.
+export const COR_ATRASADO = "#ff6b6b";
+export const COR_REVISA_HOJE = "#60a5fa";
+
+export function revisaoUrgencia(conceito: Pick<Conceito, "status" | "proxima_revisao">): RevisaoUrgencia {
+  if (conceito.status === "dominado" || conceito.status === "novo") return null;
+
+  const dias = diasParaRevisao(conceito.proxima_revisao);
+  if (dias > 0) return "atrasado";
+  if (dias === 0) return "hoje";
+  return null;
+}
+
 // Um conceito conta como "vencido" (apareceria na dose de hoje) se já foi
 // tocado ao menos uma vez (não é mais "novo"), ainda não foi dominado e a
-// data de próxima revisão já chegou. Sem o filtro de "novo", conceitos recém
-// criados (proxima_revisao já em dia por padrão) apareciam como vencidos
-// antes mesmo do primeiro contato.
+// data de próxima revisão já chegou (hoje ou antes). Usado nos agregados
+// (tamanho da dose, ordenação de materiais) — pra essas contagens, "vence
+// hoje" e "atrasado" contam igual, porque os dois entram na mesma dose.
 export function conceitoVencido(conceito: Pick<Conceito, "status" | "proxima_revisao">): boolean {
-  return (
-    conceito.status !== "dominado" &&
-    conceito.status !== "novo" &&
-    diasParaRevisao(conceito.proxima_revisao) >= 0
-  );
+  return revisaoUrgencia(conceito) !== null;
 }
 
 // Legenda curta pro estado de revisão de um conceito — usada nos cards.

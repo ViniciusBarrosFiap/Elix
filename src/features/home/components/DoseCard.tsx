@@ -2,11 +2,17 @@ import { Entypo, Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useRef } from "react";
 import { Image, Text, TouchableOpacity, useWindowDimensions, View } from "react-native";
-import { Sparkles } from 'lucide-react-native';
+import { CheckCircle2, Sparkles } from 'lucide-react-native';
 import { useQuizQuestionsStore } from "@/src/store/quizQuestionsStore";
 
 const DoseCard = ({ onPress }: { onPress: () => void }) => {
   const quizData = useQuizQuestionsStore((state) => state.data);
+  const totalPerguntas = quizData?.questoes.length ?? 0;
+  // "Concluída" só depois que a dose já foi buscada pelo menos uma vez (data
+  // não é null) — sem essa checagem, o primeiro render do dia (antes do
+  // fetch) também bateria em 0 perguntas e mostraria "tudo em dia" por engano
+  // enquanto a dose de verdade ainda nem chegou.
+  const concluida = quizData !== null && totalPerguntas === 0;
 
   const { width } = useWindowDimensions();
 
@@ -63,10 +69,11 @@ const DoseCard = ({ onPress }: { onPress: () => void }) => {
             >
               {/* <Text style={{ fontSize: iconBoxSize * 0.45 }}>✨</Text> */}
               <View>
-                <Sparkles 
-                  color="#a855f7"
-                  size={25} 
-                />
+                {concluida ? (
+                  <CheckCircle2 color="#a855f7" size={25} />
+                ) : (
+                  <Sparkles color="#a855f7" size={25} />
+                )}
               </View>
             </View>
 
@@ -75,27 +82,36 @@ const DoseCard = ({ onPress }: { onPress: () => void }) => {
               className="font-bold text-white"
               style={{ fontSize: titleSize, lineHeight: titleSize * 1.25, marginBottom: 6 }}
             >
-              Revisão de Hoje
+              {concluida ? "Revisão em dia" : "Revisão de Hoje"}
             </Text>
 
             {/* Subtitle */}
             <Text className="text-white/50" style={{ fontSize: subtitleSize }}>
-              Baseada no que{" "}
-              <Text style={{ color: "#7c3aed" }}>você estudou</Text>
+              {concluida ? (
+                <>Você já revisou tudo <Text style={{ color: "#7c3aed" }}>por hoje</Text></>
+              ) : (
+                <>Baseada no que <Text style={{ color: "#7c3aed" }}>você estudou</Text></>
+              )}
             </Text>
           </View>
         </View>
 
-        {/* Divider info */}
-        <View className="flex-row items-center" style={{ marginBottom: cardPadding }}>
-          <Feather name="clock" size={subtitleSize * 1.1} color="rgba(255,255,255,0.4)" />
-          <Text className="text-white/40" style={{ fontSize: subtitleSize, marginLeft: 6 }}>
-            {useQuizQuestionsStore((state) => state.data?.questoes.length || 0)} perguntas
-            <Text className="text-white/25">{"  |  "}Revisão rápida</Text>
-          </Text>
-        </View>
+        {/* Divider info — some inteiro quando concluída, já que "0 perguntas"
+            só confundia (parecia que a dose ainda estava carregando/pendente). */}
+        {!concluida && (
+          <View className="flex-row items-center" style={{ marginBottom: cardPadding }}>
+            <Feather name="clock" size={subtitleSize * 1.1} color="rgba(255,255,255,0.4)" />
+            <Text className="text-white/40" style={{ fontSize: subtitleSize, marginLeft: 6 }}>
+              {totalPerguntas} perguntas
+              <Text className="text-white/25">{"  |  "}Revisão rápida</Text>
+            </Text>
+          </View>
+        )}
+        {concluida && <View style={{ marginBottom: cardPadding * 0.4 }} />}
 
-        {/* CTA Button */}
+        {/* CTA Button — continua levando pro quiz mesmo concluída: lá o
+            aluno encontra a opção de revisar perguntas anteriores. Só o
+            rótulo muda pra não prometer uma dose que não existe mais. */}
         <TouchableOpacity
           onPress={onPress}
           activeOpacity={0.85}
@@ -114,7 +130,7 @@ const DoseCard = ({ onPress }: { onPress: () => void }) => {
             }}
           > */}
             <Text className="text-[#eed9ff] font-bold text-lg">
-              Começar revisão
+              {concluida ? "Praticar mesmo assim" : "Começar revisão"}
             </Text>
         </TouchableOpacity>
           {/* </LinearGradient> */}

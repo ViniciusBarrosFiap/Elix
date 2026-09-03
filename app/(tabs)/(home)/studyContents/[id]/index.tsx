@@ -40,11 +40,17 @@ import {
   STATUS_CONCEITO_ICON,
   SURFACE_DIM,
   SURFACE_SUBTEMA,
+  COR_ATRASADO,
+  COR_REVISA_HOJE,
   averageMastery,
   calcularPrioridade,
   conceitoVencido,
   legendaRevisao,
+  revisaoUrgencia,
 } from "@/src/features/studyContent/subtemaVisuals";
+
+// Largura de cada card do carrossel de Insights da disciplina.
+const INSIGHT_CARD_WIDTH = 150;
 
 export default function DisciplinaDetalhe() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -124,6 +130,7 @@ export default function DisciplinaDetalhe() {
     totalConceitos: number;
     totalErros: number;
     totalVencidos: number;
+    totalAtrasados: number;
     dominio: number;
   }
 
@@ -148,6 +155,7 @@ export default function DisciplinaDetalhe() {
       totalConceitos: grupo.conceitos.length,
       totalErros: grupo.conceitos.filter((c) => c.performance.erros > 0).length,
       totalVencidos: grupo.conceitos.filter(conceitoVencido).length,
+      totalAtrasados: grupo.conceitos.filter((c) => revisaoUrgencia(c) === "atrasado").length,
       dominio: averageMastery(grupo.conceitos),
     }));
 
@@ -165,15 +173,19 @@ export default function DisciplinaDetalhe() {
   // exatamente o total, diferente de antes que só mostrava dominado/reforço
   // e deixava "novo"/"consolidando" invisíveis) + quantos conceitos já estão
   // vencidos hoje — o número que de fato decide o tamanho da próxima dose.
-  const { totalConceitos, porStatus, vencidosDisciplina } = useMemo(() => {
+  const { totalConceitos, porStatus, vencidosDisciplina, atrasadosDisciplina, revisamHojeDisciplina } = useMemo(() => {
     const todos = macroTema?.subtemas.flatMap((s) => s.conceitos) ?? [];
     const contagem: Record<StatusConceito, number> = { novo: 0, em_reforco: 0, consolidando: 0, dominado: 0 };
     for (const c of todos) contagem[c.status] += 1;
 
+    const urgencias = todos.map(revisaoUrgencia);
+
     return {
       totalConceitos: todos.length,
       porStatus: contagem,
-      vencidosDisciplina: todos.filter(conceitoVencido).length,
+      vencidosDisciplina: urgencias.filter((u) => u !== null).length,
+      atrasadosDisciplina: urgencias.filter((u) => u === "atrasado").length,
+      revisamHojeDisciplina: urgencias.filter((u) => u === "hoje").length,
     };
   }, [macroTema]);
 
@@ -209,8 +221,12 @@ export default function DisciplinaDetalhe() {
       const n = conceito.performance.erros;
       return { texto: `${n} ${n === 1 ? "erro" : "erros"}`, cor: "#ff6b6b", Icone: Flame };
     }
-    if (conceitoVencido(conceito)) {
-      return { texto: legendaRevisao(conceito), cor: "#f0a030", Icone: Clock };
+    const urgencia = revisaoUrgencia(conceito);
+    if (urgencia) {
+      // Atrasado é vermelho (pendência acumulada); "vence hoje" é só um
+      // lembrete, então usa o azul neutro em vez do mesmo alarme do atraso.
+      const cor = urgencia === "atrasado" ? "#ff6b6b" : "#60a5fa";
+      return { texto: legendaRevisao(conceito), cor, Icone: Clock };
     }
     if (conceito.tag_foco) {
       return { texto: "marcado como foco", cor: "#f0a030", Icone: Star };
@@ -228,7 +244,7 @@ export default function DisciplinaDetalhe() {
   const corDominio = (pct: number) => (pct >= 80 ? "#22c55e" : pct >= 34 ? "#f0a030" : "#60a5fa");
 
   const renderMaterial = (resumo: ResumoMaterial) => {
-    const { material, totalSubtemas, totalConceitos: conceitosDoMaterial, totalVencidos, dominio } = resumo;
+    const { material, totalSubtemas, totalConceitos: conceitosDoMaterial, totalVencidos, totalAtrasados, dominio } = resumo;
     const MaterialIcon = MATERIAL_TIPO_ICON[material.tipo];
     const podeAbrir = material.tipo !== "notion";
     const abrindo = abrindoId === material.id;
@@ -285,54 +301,49 @@ export default function DisciplinaDetalhe() {
             {material.nome}
           </Text>
 
-          <View className="flex-row items-center justify-between">
-            <Text className="text-xs" style={{ color: MUTED }}>
-              {totalSubtemas} {totalSubtemas === 1 ? "subtema" : "subtemas"} · {conceitosDoMaterial}{" "}
-              {conceitosDoMaterial === 1 ? "conceito" : "conceitos"}
-            </Text>
-
-            {/* Tag de destaque com o % consolidado, alinhada à direita do
-                texto de subtemas/conceitos — antes era só texto no meio de
-                uma frase, fácil de passar batido. */}
-            <View
-              className="rounded-full px-2.5 py-1"
-              style={{ backgroundColor: `${cor}22`, borderWidth: 1, borderColor: `${cor}55` }}
-            >
-              <Text className="font-extrabold" style={{ color: cor, fontSize: 13 }}>
-                {dominio}%
-              </Text>
-            </View>
-          </View>
+          <Text className="text-xs" style={{ color: MUTED }}>
+            {totalSubtemas} {totalSubtemas === 1 ? "subtema" : "subtemas"} · {conceitosDoMaterial}{" "}
+            {conceitosDoMaterial === 1 ? "conceito" : "conceitos"}
+          </Text>
         </View>
 
         {totalVencidos > 0 && (
           <View
             className="rounded-full px-2 py-1 mr-1"
-            style={{ backgroundColor: "rgba(240,160,48,0.16)" }}
+            style={{ backgroundColor: `${totalAtrasados > 0 ? COR_ATRASADO : COR_REVISA_HOJE}29` }}
           >
-            <Text className="text-[10px] font-bold" style={{ color: "#f0a030" }}>
-              {totalVencidos} vencido{totalVencidos === 1 ? "" : "s"}
+            <Text className="text-[10px] font-bold" style={{ color: totalAtrasados > 0 ? COR_ATRASADO : COR_REVISA_HOJE }}>
+              {totalAtrasados > 0 ? `${totalVencidos} vencido${totalVencidos === 1 ? "" : "s"}` : `${totalVencidos} hoje`}
             </Text>
           </View>
         )}
 
         {podeAbrir && (
-          <Pressable
-            onPress={(e) => {
-              e.stopPropagation();
-              abrirMaterial(material);
-            }}
-            disabled={abrindo}
-            className="items-center justify-center active:opacity-60"
-            hitSlop={8}
-            style={{ width: 32, height: 32 }}
-          >
-            {abrindo ? (
-              <ActivityIndicator size="small" color={PRIMARY_LIGHT} />
-            ) : (
-              <ExternalLink size={16} color={PRIMARY_LIGHT} />
-            )}
-          </Pressable>
+          <>
+            {/* Divisória fina + fundo circular próprio — antes o botão de
+                abrir o link externo ficava só um ícone solto colado no
+                chevron, dentro da mesma linha que abre o bottom sheet. Sem
+                nenhuma fronteira visual entre as duas áreas de toque, era
+                fácil querer abrir o sheet e acabar abrindo o material (ou
+                o contrário). */}
+            <View style={{ width: 1, height: 22, backgroundColor: "rgba(255,255,255,0.08)", marginRight: 8 }} />
+            <Pressable
+              onPress={(e) => {
+                e.stopPropagation();
+                abrirMaterial(material);
+              }}
+              disabled={abrindo}
+              className="items-center justify-center rounded-full active:opacity-60"
+              hitSlop={6}
+              style={{ width: 32, height: 32, backgroundColor: "rgba(255,255,255,0.05)" }}
+            >
+              {abrindo ? (
+                <ActivityIndicator size="small" color={PRIMARY_LIGHT} />
+              ) : (
+                <ExternalLink size={16} color={PRIMARY_LIGHT} />
+              )}
+            </Pressable>
+          </>
         )}
 
         <ChevronRight size={18} color="rgba(255,255,255,0.25)" />
@@ -461,17 +472,32 @@ export default function DisciplinaDetalhe() {
               </View>
             </View> */}
 
-            {/* Vencidos hoje — o número que decide o tamanho da próxima dose,
-                antes invisível em qualquer tela da disciplina/material/conceito. */}
+            {/* Vencidos hoje — o número que decide o tamanho da próxima dose.
+                Cor e texto seguem a mesma distinção atrasado/vence-hoje das
+                tags de conceito/subtema (COR_ATRASADO/COR_REVISA_HOJE), em
+                vez do laranja genérico que não batia com o resto da tela. */}
             {vencidosDisciplina > 0 && (
               <View
                 className="flex-row items-center rounded-2xl px-4 py-3 mb-3"
-                style={{ backgroundColor: "rgba(240,160,48,0.1)", borderWidth: 1, borderColor: "rgba(240,160,48,0.3)" }}
+                style={{
+                  backgroundColor: `${atrasadosDisciplina > 0 ? COR_ATRASADO : COR_REVISA_HOJE}1A`,
+                  borderWidth: 1,
+                  borderColor: `${atrasadosDisciplina > 0 ? COR_ATRASADO : COR_REVISA_HOJE}4D`,
+                }}
               >
-                <Clock size={18} color="#f0a030" />
-                <Text className="text-sm ml-2.5 flex-1" style={{ color: "#ffd8a8" }}>
-                  <Text className="font-bold">{vencidosDisciplina}</Text>
-                  {vencidosDisciplina === 1 ? " conceito vencido" : " conceitos vencidos"} — prontos pra revisar hoje
+                <Clock size={18} color={atrasadosDisciplina > 0 ? COR_ATRASADO : COR_REVISA_HOJE} />
+                <Text className="text-sm ml-2.5 flex-1" style={{ color: "#fff" }}>
+                  {atrasadosDisciplina > 0 && (
+                    <Text className="font-bold" style={{ color: COR_ATRASADO }}>
+                      {atrasadosDisciplina} {atrasadosDisciplina === 1 ? "atrasado" : "atrasados"}
+                    </Text>
+                  )}
+                  {atrasadosDisciplina > 0 && revisamHojeDisciplina > 0 ? "  ·  " : ""}
+                  {revisamHojeDisciplina > 0 && (
+                    <Text className="font-bold" style={{ color: COR_REVISA_HOJE }}>
+                      {revisamHojeDisciplina} {revisamHojeDisciplina === 1 ? "vence hoje" : "vencem hoje"}
+                    </Text>
+                  )}
                 </Text>
               </View>
             )}
@@ -521,40 +547,59 @@ export default function DisciplinaDetalhe() {
                 </Text>
               </View>
 
-              <View style={{ gap: 8 }}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ gap: 10 }}
+                decelerationRate="fast"
+                snapToInterval={INSIGHT_CARD_WIDTH + 10}
+                snapToAlignment="start"
+                style={{ marginHorizontal: -16 }}
+              >
+                <View style={{ width: 6 }} />
                 {insightsDaDisciplina.map(({ conceito, subtemaNome, materialId }) => {
                   const { texto, cor, Icone } = motivoInsight(conceito);
                   return (
                     <Pressable
                       key={conceito.id}
                       onPress={() => abrirSheetDoMaterial(materialId)}
-                      className="flex-row items-center rounded-2xl active:opacity-70"
+                      className="rounded-2xl active:opacity-70"
                       style={{
-                        padding: 10,
+                        width: INSIGHT_CARD_WIDTH,
+                        padding: 12,
                         backgroundColor: "rgba(255,255,255,0.03)",
                         borderWidth: 1,
                         borderColor: "rgba(255,255,255,0.06)",
                       }}
                     >
+                      <View className="flex-row items-center justify-between" style={{ marginBottom: 10 }}>
+                        <View
+                          className="items-center justify-center rounded-full"
+                          style={{ width: 30, height: 30, backgroundColor: `${cor}22` }}
+                        >
+                          <Icone size={14} color={cor} />
+                        </View>
+                        <ChevronRight size={14} color="rgba(255,255,255,0.25)" />
+                      </View>
+
+                      <Text className="text-white font-semibold" numberOfLines={2} style={{ fontSize: 13, lineHeight: 17 }}>
+                        {conceito.nome}
+                      </Text>
+                      <Text numberOfLines={1} style={{ fontSize: 11, marginTop: 3, color: MUTED }}>
+                        {subtemaNome}
+                      </Text>
+
                       <View
-                        className="items-center justify-center rounded-full"
-                        style={{ width: 32, height: 32, backgroundColor: `${cor}22`, marginRight: 10 }}
+                        className="rounded-full self-start"
+                        style={{ marginTop: 10, paddingHorizontal: 8, paddingVertical: 3, backgroundColor: `${cor}1A` }}
                       >
-                        <Icone size={14} color={cor} />
+                        <Text style={{ fontSize: 10, fontWeight: "700", color: cor }}>{texto}</Text>
                       </View>
-                      <View className="flex-1 mr-2">
-                        <Text className="text-white font-semibold" numberOfLines={1} style={{ fontSize: 13 }}>
-                          {conceito.nome}
-                        </Text>
-                        <Text numberOfLines={1} style={{ fontSize: 11, marginTop: 1, color: MUTED }}>
-                          {subtemaNome} · {texto}
-                        </Text>
-                      </View>
-                      <ChevronRight size={16} color="rgba(255,255,255,0.25)" />
                     </Pressable>
                   );
                 })}
-              </View>
+                <View style={{ width: 6 }} />
+              </ScrollView>
             </View>
           )}
 
@@ -639,10 +684,13 @@ export default function DisciplinaDetalhe() {
                           Revisar disciplina
                         </Text>
                       </View>
+                      {/* Reaproveita o mesmo número do banner do topo — antes o
+                          botão prometia "revisar" sem dizer se havia algo pra
+                          revisar, só descobria isso depois de abrir o quiz. */}
                       {/* <Text className="text-xs mt-1" style={{ color: "rgba(238,217,255,0.7)" }}>
                         {vencidosDisciplina > 0
-                          ? `${vencidosDisciplina} ${vencidosDisciplina === 1 ? "pergunta" : "perguntas"} hoje`
-                          : "Nada vencido — revisar mesmo assim"}
+                          ? `${vencidosDisciplina} ${vencidosDisciplina === 1 ? "conceito pronto" : "conceitos prontos"} pra revisar`
+                          : "Nada pendente — praticar mesmo assim"}
                       </Text> */}
                     </View>
                   </LinearGradient>
