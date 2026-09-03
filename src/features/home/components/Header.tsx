@@ -11,13 +11,13 @@ const Header = ()=>{
     }
 
     return (
-        <View className="flex-row items-center justify-between w-full px-6 pt-12 pb-6">
+        <View className="flex-row items-center justify-between w-full px-6 pt-16 pb-6">
             {/* Logo */}
-            <View className="flex-row items-center">
+            <View className="flex-row items-center -ml-3">
                 <Image 
                     source={require('@/assets/images/elix-logo.png')} 
                     resizeMode="contain"
-                    className="w-28 h-14"
+                    className="w-32 h-16"
                 />
             </View>
 
