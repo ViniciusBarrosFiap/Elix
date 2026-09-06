@@ -1,95 +1,151 @@
-import { Type } from "@google/genai";
-import { gemini } from "../../config/gemini";
+import OpenAI from "openai";
+import { z } from "zod";
+import { openai } from "../../config/openai";
 import { env } from "../../config/env";
 import { HttpError } from "../../middlewares/errorHandler";
 import {
+  GeneratedConceito,
   GeneratedStudyContent,
+  generatedConceitoSchema,
   generatedStudyContentSchema,
 } from "../../schemas/studyContent.schema";
-import { buildStudyContentPrompt } from "./buildPrompt";
+import { buildConceitosPrompt, buildSubtemasPrompt } from "./buildPrompt";
+
+// ── Schemas de resposta da OpenAI (JSON Schema puro, para Structured
+// Outputs com strict:true) ────────────────────────────────────────────────
+// Cada fase pede um pedaço pequeno da árvore, não a árvore inteira — ver
+// generateStudyContent() para o porquê (arquitetura em 2 fases/N agentes).
+//
+// O modo strict da OpenAI não aceita minItems/maxItems em arrays nem campos
+// opcionais — quem garante "exatamente 3 perguntas, níveis 1/2/3 sem repetir"
+// continua sendo a validação Zod logo abaixo, este schema é só um guia
+// estrutural pro modelo.
 
 const perguntaItemSchema = {
-  type: Type.OBJECT,
+  type: "object",
   properties: {
-    nivel: { type: Type.INTEGER },
-    pergunta: { type: Type.STRING },
-    dica: { type: Type.STRING },
+    nivel: { type: "integer", enum: [1, 2, 3] },
+    pergunta: { type: "string" },
+    dica: { type: "string" },
     alternativas: {
-      type: Type.OBJECT,
+      type: "object",
       properties: {
-        A: { type: Type.STRING },
-        B: { type: Type.STRING },
-        C: { type: Type.STRING },
-        D: { type: Type.STRING },
+        A: { type: "string" },
+        B: { type: "string" },
+        C: { type: "string" },
+        D: { type: "string" },
       },
       required: ["A", "B", "C", "D"],
+      additionalProperties: false,
     },
-    resposta: { type: Type.STRING, enum: ["A", "B", "C", "D"] },
-    explicacao: { type: Type.STRING },
+    resposta: { type: "string", enum: ["A", "B", "C", "D"] },
+    explicacao: { type: "string" },
   },
   required: ["nivel", "pergunta", "dica", "alternativas", "resposta", "explicacao"],
+  additionalProperties: false,
 };
 
-const responseSchema = {
-  type: Type.OBJECT,
+const conceitoItemSchema = {
+  type: "object",
+  properties: {
+    nome: { type: "string" },
+    tag_foco: { type: "boolean" },
+    perguntas: { type: "array", items: perguntaItemSchema },
+  },
+  required: ["nome", "tag_foco", "perguntas"],
+  additionalProperties: false,
+};
+
+// Fase 1 — só os nomes dos subtemas.
+const subtemasListResponseSchema = {
+  type: "object",
   properties: {
     subtemas: {
-      type: Type.ARRAY,
+      type: "array",
       items: {
-        type: Type.OBJECT,
-        properties: {
-          nome: { type: Type.STRING },
-          conceitos: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                nome: { type: Type.STRING },
-                tag_foco: { type: Type.BOOLEAN },
-                perguntas: {
-                  type: Type.ARRAY,
-                  items: perguntaItemSchema,
-                  minItems: "3",
-                  maxItems: "3",
-                },
-              },
-              required: ["nome", "tag_foco", "perguntas"],
-            },
-          },
-        },
-        required: ["nome", "conceitos"],
+        type: "object",
+        properties: { nome: { type: "string" } },
+        required: ["nome"],
+        additionalProperties: false,
       },
     },
   },
   required: ["subtemas"],
+  additionalProperties: false,
 };
 
-// Timeout por chamada individual ao Gemini — DESATIVADO por enquanto.
-// Já subiu de 27s pra 50s antes por causa de "AbortError: This operation was
-// aborted" cortando gerações legítimas no meio (material grande = prompt
-// grande = mais tempo de geração), e voltou a acontecer com um material ainda
-// mais pesado. Até decidir a correção de verdade (gerar por subtema em vez de
-// tudo numa chamada só, ver conversa sobre arquitetura), a chamada fica sem
-// timeout próprio — só o teto de 60s do Vercel Hobby (maxDuration no
-// vercel.json) ainda pode cortar em produção, isso aqui não resolve esse lado.
-// const TIMEOUT_POR_CHAMADA_MS = 50000;
+const subtemasListSchema = z.object({
+  subtemas: z.array(z.object({ nome: z.string().min(1) })).min(1),
+});
 
-async function callGemini(prompt: string): Promise<unknown> {
-  let raw: string | undefined;
+// Fase 2 — conceitos+perguntas de UM subtema por vez.
+const conceitosResponseSchema = {
+  type: "object",
+  properties: {
+    conceitos: { type: "array", items: conceitoItemSchema },
+  },
+  required: ["conceitos"],
+  additionalProperties: false,
+};
 
-  try {
-    const response = await gemini.models.generateContent({
-      model: env.GEMINI_MODEL,
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema,
-        // httpOptions: { timeout: TIMEOUT_POR_CHAMADA_MS },
-      },
-    });
-    raw = response.text;
-  } catch (err) {
-    console.error("Falha ao chamar o Gemini:", err);
+const conceitosListSchema = z.object({
+  conceitos: z.array(generatedConceitoSchema).min(1),
+});
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// O SDK (openai) expõe o status HTTP direto em APIError#status: 4xx (ex: 429
+// de rate limit/cota — costuma continuar rejeitando por bastante tempo, retry
+// imediato não ajuda) não é reenviado automaticamente; 5xx (sobrecarga
+// momentânea do lado da OpenAI) ou erro de conexão (status undefined) valem
+// um retry curto.
+function isErroTransitorioDoServico(err: unknown): boolean {
+  if (err instanceof OpenAI.APIConnectionError) return true;
+  if (err instanceof OpenAI.APIError) return typeof err.status !== "number" || err.status >= 500;
+  return false;
+}
+
+const TENTATIVAS_SOBRECARGA = 2; // 1ª chamada + 1 retry
+const DELAY_ENTRE_TENTATIVAS_MS = 3000;
+
+async function callOpenAI(prompt: string, schemaName: string, jsonSchema: Record<string, unknown>): Promise<unknown> {
+  let raw: string | null | undefined;
+  let ultimoErro: unknown;
+
+  for (let tentativa = 1; tentativa <= TENTATIVAS_SOBRECARGA; tentativa++) {
+    try {
+      const response = await openai.chat.completions.create({
+        model: env.OPENAI_MODEL,
+        messages: [{ role: "user", content: prompt }],
+        response_format: {
+          type: "json_schema",
+          json_schema: { name: schemaName, strict: true, schema: jsonSchema },
+        },
+        // Modelos "nano" da família gpt-5 fazem raciocínio interno por padrão,
+        // o que custava ~14s por chamada mesmo pra tarefas simples como esta
+        // (testado). "minimal" cortou pra ~2s sem perda de qualidade visível
+        // na tarefa — crítico aqui porque a fase 2 dispara várias chamadas em
+        // paralelo dentro do teto de 60s da função na Vercel.
+        reasoning_effort: "minimal",
+      });
+      raw = response.choices[0]?.message?.content;
+      ultimoErro = undefined;
+      break;
+    } catch (err) {
+      ultimoErro = err;
+      const podeTentarDeNovo = isErroTransitorioDoServico(err) && tentativa < TENTATIVAS_SOBRECARGA;
+      if (!podeTentarDeNovo) break;
+      console.warn(
+        `OpenAI sobrecarregada (tentativa ${tentativa}/${TENTATIVAS_SOBRECARGA}), tentando de novo em ${DELAY_ENTRE_TENTATIVAS_MS}ms...`
+      );
+      await sleep(DELAY_ENTRE_TENTATIVAS_MS);
+    }
+  }
+
+  if (ultimoErro) {
+    console.error("Falha ao chamar a OpenAI:", ultimoErro);
     throw new HttpError(
       502,
       "Não foi possível gerar sua revisão agora — o serviço de IA está sobrecarregado. Tente novamente em instantes."
@@ -107,6 +163,31 @@ async function callGemini(prompt: string): Promise<unknown> {
   }
 }
 
+/**
+ * Chama a OpenAI e valida a resposta contra `zodSchema`, com no máximo 1
+ * retry (reenviando o prompt com o erro de validação anexado) se a 1ª
+ * resposta não bater com o schema — aplicado por chamada (fase 1, ou cada
+ * subtema da fase 2), não pra árvore inteira de uma vez. `errorLabel` entra
+ * na mensagem de erro final, pra quem ler o log saber qual chamada falhou.
+ */
+async function callOpenAIValidated<T>(
+  buildPrompt: (correcaoAnterior?: string) => string,
+  schemaName: string,
+  jsonSchema: Record<string, unknown>,
+  zodSchema: z.ZodType<T>,
+  errorLabel: string
+): Promise<T> {
+  const firstRaw = await callOpenAI(buildPrompt(), schemaName, jsonSchema);
+  const firstParsed = zodSchema.safeParse(firstRaw);
+  if (firstParsed.success) return firstParsed.data;
+
+  const retryRaw = await callOpenAI(buildPrompt(firstParsed.error.message), schemaName, jsonSchema);
+  const retryParsed = zodSchema.safeParse(retryRaw);
+  if (retryParsed.success) return retryParsed.data;
+
+  throw new HttpError(422, `${errorLabel} após uma nova tentativa.`);
+}
+
 interface GenerateInput {
   disciplinaNome: string;
   tags: string[];
@@ -114,45 +195,84 @@ interface GenerateInput {
 }
 
 /**
- * Chama o Gemini pedindo subtemas/conceitos/perguntas para a disciplina já
- * escolhida. Faz no máximo 1 retry se a resposta não bater com o schema
- * esperado — no pior caso são 2 chamadas ao Gemini (até TIMEOUT_POR_CHAMADA_MS
- * cada) numa única requisição, o que cabe nos 60s da função com folga.
+ * Gera subtemas/conceitos/perguntas para a disciplina já escolhida, em 2
+ * fases (arquitetura tipo "agente planejador + agentes por subtema em
+ * paralelo", ver diagrama discutido com o time):
  *
- * Não faz retry automático em erro transitório (ex: 503 de sobrecarga): na
- * prática, quando o Gemini rejeita por sobrecarga costuma continuar
- * rejeitando por bem mais que alguns segundos — um retry imediato não ajuda
- * e só consome parte do orçamento de tempo à toa. Melhor falhar rápido com
- * uma mensagem clara e deixar o usuário tentar de novo.
+ *  Fase 1 — 1 chamada rápida à OpenAI só pra decidir os NOMES dos subtemas.
+ *  Fase 2 — 1 chamada por subtema, TODAS em paralelo (Promise.allSettled),
+ *           cada uma gerando só os conceitos+perguntas daquele subtema.
+ *
+ * Antes disso tudo saía de uma única chamada gerando a árvore inteira, o que
+ * ficava lento (e arriscava o timeout de 60s da função na Vercel) em
+ * materiais grandes com muitos subtemas — como cada chamada agora pede uma
+ * fatia bem menor de JSON, e as fatias da fase 2 rodam ao mesmo tempo, o
+ * tempo total passa a ser ~ tempo do subtema mais lento, não a soma de todos.
+ *
+ * O contrato de saída (GeneratedStudyContent) não muda — quem chama esta
+ * função (materials.service.ts) e quem persiste (persistStudyContent.ts)
+ * continuam recebendo a árvore completa, como antes.
+ *
+ * Mantém a garantia de "nunca grava pela metade": se QUALQUER subtema falhar
+ * a validação mesmo após seu próprio retry, a função inteira falha — nada é
+ * persistido parcialmente (ver persistStudyContent.ts, que insere tudo numa
+ * transação só).
  */
 export async function generateStudyContent({
   disciplinaNome,
   tags,
   texto,
 }: GenerateInput): Promise<GeneratedStudyContent> {
-  const firstPrompt = buildStudyContentPrompt({ disciplinaNome, tags, texto });
-  const firstRaw = await callGemini(firstPrompt);
-  const firstParsed = generatedStudyContentSchema.safeParse(firstRaw);
-
-  if (firstParsed.success) {
-    return firstParsed.data;
-  }
-
-  const retryPrompt = buildStudyContentPrompt({
-    disciplinaNome,
-    tags,
-    texto,
-    correcaoAnterior: firstParsed.error.message,
-  });
-  const retryRaw = await callGemini(retryPrompt);
-  const retryParsed = generatedStudyContentSchema.safeParse(retryRaw);
-
-  if (retryParsed.success) {
-    return retryParsed.data;
-  }
-
-  throw new HttpError(
-    422,
-    "A IA não conseguiu gerar um conteúdo válido para este material após uma nova tentativa."
+  const subtemasList = await callOpenAIValidated(
+    (correcaoAnterior) => buildSubtemasPrompt({ disciplinaNome, tags, texto, correcaoAnterior }),
+    "subtemas_list",
+    subtemasListResponseSchema,
+    subtemasListSchema,
+    "Não foi possível planejar os subtemas deste material"
   );
+
+  const resultados = await Promise.allSettled(
+    subtemasList.subtemas.map((subtema) =>
+      callOpenAIValidated(
+        (correcaoAnterior) =>
+          buildConceitosPrompt({ disciplinaNome, subtemaNome: subtema.nome, tags, texto, correcaoAnterior }),
+        "conceitos_do_subtema",
+        conceitosResponseSchema,
+        conceitosListSchema,
+        `Não foi possível gerar o conteúdo do subtema "${subtema.nome}"`
+      ).then((r) => r.conceitos)
+    )
+  );
+
+  const falhas = resultados
+    .map((r, i) => (r.status === "rejected" ? { nome: subtemasList.subtemas[i].nome, erro: r.reason } : null))
+    .filter((f): f is { nome: string; erro: unknown } => f !== null);
+
+  if (falhas.length > 0) {
+    falhas.forEach((f) => console.error(`Falha ao gerar subtema "${f.nome}":`, f.erro));
+    const nomes = falhas.map((f) => `"${f.nome}"`).join(", ");
+    throw new HttpError(
+      422,
+      `A IA não conseguiu gerar o conteúdo de ${falhas.length > 1 ? "alguns subtemas" : "um subtema"} (${nomes}) deste material. Tente novamente.`
+    );
+  }
+
+  const conceitosPorSubtema = resultados as PromiseFulfilledResult<GeneratedConceito[]>[];
+
+  const generated: GeneratedStudyContent = {
+    subtemas: subtemasList.subtemas.map((subtema, i) => ({
+      nome: subtema.nome,
+      conceitos: conceitosPorSubtema[i].value,
+    })),
+  };
+
+  // Rede de segurança barata: confirma que a montagem final bate com o
+  // schema que o resto do backend espera, antes de seguir pra persistência.
+  const finalParsed = generatedStudyContentSchema.safeParse(generated);
+  if (!finalParsed.success) {
+    console.error("Árvore final malformada após merge dos subtemas:", finalParsed.error.message);
+    throw new HttpError(500, "Falha interna ao montar o conteúdo gerado.");
+  }
+
+  return finalParsed.data;
 }

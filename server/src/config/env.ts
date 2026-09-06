@@ -6,8 +6,8 @@ const envSchema = z.object({
   SUPABASE_URL: z.string().url(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
   SUPABASE_STORAGE_BUCKET: z.string().min(1).default("materials"),
-  GEMINI_API_KEY: z.string().min(1),
-  GEMINI_MODEL: z.string().min(1).default("gemini-2.0-flash"),
+  OPENAI_API_KEY: z.string().min(1),
+  OPENAI_MODEL: z.string().min(1).default("gpt-4o-mini"),
   MAX_INPUT_CHARS: z.coerce.number().default(80000),
   MAX_UPLOAD_MB: z.coerce.number().default(15),
 
