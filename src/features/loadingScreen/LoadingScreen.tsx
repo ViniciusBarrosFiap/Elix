@@ -223,7 +223,7 @@ export default function LoadingScreen({ next, title, subtitle }: Props) {
 
   return (
     <View className="flex-1 bg-[#16111b]">
-      <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#16111b' }]} />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: '#16111b' }]} />
 
       {/* Fundo líquido: onda em SVG subindo com o progresso, mesmas cores de antes */}
       <LiquidWaveBackground progressRef={bgProgressRef} />
@@ -264,7 +264,7 @@ export default function LoadingScreen({ next, title, subtitle }: Props) {
               size={FLASK_SIZE}
               color="#4a3a5c"
               strokeWidth={1.4}
-              style={StyleSheet.absoluteFillObject}
+              style={StyleSheet.absoluteFill}
             />
 
             {/* máscara com o líquido: sobe conforme o progresso, com bolhas dentro */}

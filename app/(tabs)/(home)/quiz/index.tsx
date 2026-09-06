@@ -613,7 +613,11 @@ export default function QuizScreen() {
         <ElixirFlaskRN ref={flaskRef} totalUnits={elixirMaximoSessao} size={36} />
       </View>
 
-      <View style={{ flex: 1 }}>
+      {/* overflow: 'hidden' trava essa área no espaço que o flex:1 já
+          reservou — sem isso, uma pergunta comprida podia fazer o conteúdo
+          crescer além do espaço alocado e empurrar/cortar o header fixo
+          acima (que é irmão desta View, não filho do ScrollView). */}
+      <View style={{ flex: 1, overflow: 'hidden' }}>
         <ScrollView
           contentContainerStyle={styles.scroll}
           showsVerticalScrollIndicator={false}

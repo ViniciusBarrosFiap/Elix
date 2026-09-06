@@ -281,7 +281,7 @@ const ElixirFlaskRN = forwardRef<ElixirFlaskHandle, ElixirFlaskProps>(function E
       </Animated.View>
 
       {/* overlay de gotas + rótulo, centralizado sobre o frasco */}
-      <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
         {burst && burst.droplets.map((d) => <Droplet key={`${burst.id}-${d.id}`} {...d} />)}
         {label && <GainLabel key={label.id} text={label.text} />}
       </View>

@@ -1,4 +1,4 @@
-import { useIsFocused } from "@react-navigation/native";
+import { useIsFocused } from "expo-router";
 import { BlurView } from "expo-blur";
 import React, { FC, ReactNode, useEffect, useRef, useState } from "react";
 import { Animated, AppState, AppStateStatus, Easing, StyleSheet, Text, View, ViewStyle } from "react-native";
@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   center: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: "center",
     justifyContent: "center",
     gap: 10,

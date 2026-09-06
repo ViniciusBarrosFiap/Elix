@@ -114,7 +114,7 @@ export function AnimatedGradientBg({ children, style, width, height }: Props) {
 
   return (
     <View style={[styles.container, style]}>
-      <Canvas style={StyleSheet.absoluteFillObject}>
+      <Canvas style={StyleSheet.absoluteFill}>
         <Group opacity={0.85} blendMode="screen">
           {ORBS.map((orb, i) => {
             const cx = useDerivedValue(() =>
