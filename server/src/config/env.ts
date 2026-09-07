@@ -7,7 +7,10 @@ const envSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
   SUPABASE_STORAGE_BUCKET: z.string().min(1).default("materials"),
   OPENAI_API_KEY: z.string().min(1),
-  OPENAI_MODEL: z.string().min(1).default("gpt-4o-mini"),
+  // Precisa ser um modelo que aceite reasoning_effort (família gpt-5/o-series)
+  // — generateStudyContent.ts sempre envia esse parâmetro; gpt-4o-mini e
+  // afins são rejeitados pela OpenAI com 400 "Unrecognized request argument".
+  OPENAI_MODEL: z.string().min(1).default("gpt-5-nano"),
   MAX_INPUT_CHARS: z.coerce.number().default(80000),
   MAX_UPLOAD_MB: z.coerce.number().default(15),
 
