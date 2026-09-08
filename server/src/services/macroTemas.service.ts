@@ -101,3 +101,75 @@ export async function assertMacroTemaBelongsToUser(macroTemaId: string, userId: 
     throw new HttpError(404, "Macrotema não encontrado para este usuário.");
   }
 }
+
+/**
+ * Renomeia e/ou troca o emoji de uma disciplina (segurar o card na tela
+ * "Todos os conteúdos" abre o modal que chama isso). Quando o nome muda,
+ * também troca a entrada correspondente em `users.disciplinas` — essa lista
+ * é quem `syncMacroTemasFromDisciplinas` usa pra decidir criar/reativar/
+ * desativar macrotemas (ver função acima); sem essa troca, a próxima vez que
+ * o aluno salvasse "Editar disciplinas" recriaria um macrotema com o nome
+ * antigo, duplicando a disciplina.
+ */
+export async function updateMacroTema(
+  macroTemaId: string,
+  userId: string,
+  updates: { nome?: string; emoji?: string }
+): Promise<MacroTemaListItem> {
+  const dbUpdates: Record<string, string> = {};
+  if (updates.emoji !== undefined) dbUpdates.emoji = updates.emoji;
+
+  if (updates.nome !== undefined) {
+    const { data: atual, error: atualError } = await supabase
+      .from("macro_temas")
+      .select("nome")
+      .eq("id", macroTemaId)
+      .single();
+
+    if (atualError || !atual) {
+      throw new HttpError(404, "Macrotema não encontrado.");
+    }
+
+    dbUpdates.nome = updates.nome;
+
+    if (atual.nome.trim().toLowerCase() !== updates.nome.trim().toLowerCase()) {
+      const { data: userRow, error: userError } = await supabase
+        .from("users")
+        .select("disciplinas")
+        .eq("id", userId)
+        .single();
+
+      if (!userError && userRow) {
+        const disciplinas: string[] = userRow.disciplinas ?? [];
+        const idx = disciplinas.findIndex((d) => d.trim().toLowerCase() === atual.nome.trim().toLowerCase());
+        if (idx !== -1) {
+          const novasDisciplinas = [...disciplinas];
+          novasDisciplinas[idx] = updates.nome;
+          await supabase.from("users").update({ disciplinas: novasDisciplinas }).eq("id", userId);
+        }
+      }
+    }
+  }
+
+  const { data: updated, error: updateError } = await supabase
+    .from("macro_temas")
+    .update(dbUpdates)
+    .eq("id", macroTemaId)
+    .eq("user_id", userId)
+    .select("id, nome, emoji, status")
+    .single();
+
+  if (updateError) {
+    // unique_violation (user_id, nome) — já existe outra disciplina com esse nome.
+    if (updateError.code === "23505") {
+      throw new HttpError(409, "Você já tem uma disciplina com esse nome.");
+    }
+    throw new HttpError(500, "Falha ao atualizar a disciplina.");
+  }
+
+  if (!updated) {
+    throw new HttpError(404, "Macrotema não encontrado para este usuário.");
+  }
+
+  return updated;
+}

@@ -4,7 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import '@/global.css'
 import {
-    ScrollView,
+    StatusBar,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -17,6 +17,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { QuizQuestionsService } from '@/src/services/quiz/quiz.service';
 import { useQuizQuestionsStore } from '@/src/store/quizQuestionsStore';
+import { useQuizSessionStore } from '@/src/store/quizSessionStore';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BottomSheetBackdrop, BottomSheetModal, BottomSheetView } from '@gorhom/bottom-sheet';
 import { BlurView } from 'expo-blur';
@@ -344,23 +345,66 @@ export default function QuizScreen() {
   const quizQuestions = quizData?.questoes ?? [];
   const amountOfQuestions = quizQuestions.length;
 
-  // Frasco de elixir do header: enche em direção ao máximo possível na
-  // sessão (soma do elixir de acerto de cada pergunta, por nível) — só bate
-  // 100% se o aluno acertar tudo.
+  // Progresso acumulado do DIA inteiro (não só da lista atual) — ver
+  // quizSessionStore.ts. Sem isso, sair pra Home e voltar remonta a tela
+  // com uma lista menor (o backend já não devolve o que foi respondido
+  // hoje) e acertos/erros/elixir/barra de progresso voltavam pra zero.
+  const totalSessao = useQuizSessionStore((s) => s.totalSessao);
+  const elixirMaximo = useQuizSessionStore((s) => s.elixirMaximo);
+  const acertos = useQuizSessionStore((s) => s.acertos);
+  const erros = useQuizSessionStore((s) => s.erros);
+  const elixirTotal = useQuizSessionStore((s) => s.elixirTotal);
+  const garantirSessao = useQuizSessionStore((s) => s.garantirSessao);
+  const registrarResposta = useQuizSessionStore((s) => s.registrarResposta);
+
+  useEffect(() => {
+    if (!quizData) return;
+    const elixirMaximoAtual = quizQuestions.reduce((soma, q) => soma + ELIXIR_POR_NIVEL[q.nivel], 0);
+    garantirSessao(amountOfQuestions, elixirMaximoAtual);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quizData]);
+
+  // Frasco de elixir do header: enche em direção ao máximo possível no DIA
+  // (capturado em garantirSessao), não só na lista atual — só bate 100% se
+  // o aluno acertar tudo na dose inteira.
   const flaskRef = useRef<ElixirFlaskHandle>(null);
-  const elixirMaximoSessao = useMemo(
-    () => quizQuestions.reduce((soma, q) => soma + ELIXIR_POR_NIVEL[q.nivel], 0),
-    [quizQuestions]
-  );
+
+  // Barra de progresso + frasco somem ao rolar a pergunta, pra dar mais
+  // espaço vertical pra ela — só o X de fechar continua sempre visível
+  // (não pode perder o jeito de sair do quiz). useNativeDriver:false porque
+  // anima `height` (não suportado pelo native driver), e o próprio onScroll
+  // que alimenta scrollY precisa usar o mesmo driver.
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const scrollViewRef = useRef<any>(null);
+  // Altura real do header (medida via onLayout) — usada como paddingTop do
+  // scroll pra o conteúdo não nascer escondido atrás do header flutuante.
+  const [headerHeight, setHeaderHeight] = useState(0);
+  // Altura de repouso precisa caber o frasco inteiro (ElixirFlaskRN com
+  // size=36 mede ~71px) MAIS o padding vertical do header (pt-4/pb-3 = 28px,
+  // agora dentro da própria Animated.View que colapsa) — não é a distância
+  // de rolagem do fade, que é bem mais curta (COLAPSO_SCROLL_PX).
+  const HEADER_EXTRA_HEIGHT = 100;
+  const COLAPSO_SCROLL_PX = 40;
+  const headerExtraStyle = {
+    height: scrollY.interpolate({ inputRange: [0, COLAPSO_SCROLL_PX], outputRange: [HEADER_EXTRA_HEIGHT, 0], extrapolate: 'clamp' as const }),
+    opacity: scrollY.interpolate({ inputRange: [0, COLAPSO_SCROLL_PX * 0.6], outputRange: [1, 0], extrapolate: 'clamp' as const }),
+  };
+
+  // "Recupera" o frasco no nível certo quando a tela remonta já com
+  // progresso acumulado (ex: voltou da Home no meio da dose) — sem isso o
+  // frasco sempre nasce vazio, mesmo com elixirTotal > 0 no store.
+  useEffect(() => {
+    if (elixirTotal > 0) {
+      flaskRef.current?.setFill(elixirTotal);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const router = useRouter();
 
   const [selected, setSelected] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [acertos, setAcertos] = useState(0);
-  const [erros, setErros] = useState(0);
-  const [elixirTotal, setElixirTotal] = useState(0);
   // Espelha o "pronto pra confirmar" do ConfidenceSlider — só existe pra
   // trocar o texto da dica acima do slider (ver onReadyChange).
   const [prontoParaConfirmar, setProntoParaConfirmar] = useState(false);
@@ -384,15 +428,13 @@ export default function QuizScreen() {
   const isLastQuestion = currentQuestionIndex === quizQuestions.length - 1;
   const isFirstQuestion = currentQuestionIndex === 0;
 
-  // Fração de perguntas concluídas — precisa ser uma % da largura real da
-  // trilha (que é flex-1, varia com o layout), não um valor fixo em pixels.
-  // Antes tinha uma fórmula em px (largura da tela + offsets chutados) que
-  // não guardava relação nenhuma com a largura de fato renderizada da trilha,
-  // então a barra não acompanhava corretamente quantas perguntas existem —
-  // ficava simplesmente errada, principalmente agora que a dose diária não
-  // tem mais teto de 5 e o total de perguntas varia bem mais.
-  const progress = amountOfQuestions > 0
-    ? currentQuestionIndex / amountOfQuestions
+  // Fração de perguntas concluídas HOJE (acertos+erros da sessão do dia
+  // inteiro / totalSessao capturado em garantirSessao) — não mais
+  // currentQuestionIndex/amountOfQuestions, que reiniciava em 0% toda vez
+  // que a tela remontava com uma lista menor (perguntas já respondidas
+  // somem da lista que o backend devolve).
+  const progress = totalSessao > 0
+    ? (acertos + erros) / totalSessao
     : 0;
 
   function handleSelect(id: string) {
@@ -405,6 +447,11 @@ export default function QuizScreen() {
     setSelected(null);
     setConfirmed(false);
     setProntoParaConfirmar(false);
+    // Sem isso, trocar de pergunta mantinha a posição de scroll da pergunta
+    // anterior — a nova já nascia rolada (e o header, escondido) se o aluno
+    // tivesse descido antes de responder.
+    scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+    scrollY.setValue(0);
   }
 
   // Registro local do nível de confiança de cada resposta (0 a 1) — ainda não
@@ -421,13 +468,10 @@ export default function QuizScreen() {
 
     const acertou = selected === currentQuestion.id_gabarito;
     const ganho = calcularElixir(currentQuestion.nivel, acertou);
-    setElixirTotal((prev) => prev + ganho);
+    registrarResposta(acertou, ganho);
     flaskRef.current?.gain(ganho, `+${ganho} XP`);
 
-    if (acertou) {
-      setAcertos((prev) => prev + 1);
-    } else {
-      setErros((prev) => prev + 1);
+    if (!acertou) {
       // Se a resposta selecionada for diferente do gabarito (resposta errada),
       // abre o Bottom Sheet automaticamente e trava o fechamento por alguns
       // segundos — sem isso, dava pra bater o dedo e sair sem ler nada.
@@ -484,6 +528,7 @@ export default function QuizScreen() {
   if(!currentQuestion) {
     return (
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']} className="flex-1 justify-center items-center px-8">
+        <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
         {/* Emblema de sucesso, com glow suave atrás */}
         <View
           style={{ alignItems: 'center', justifyContent: 'center', marginBottom: 32 }}
@@ -566,61 +611,21 @@ export default function QuizScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
-      
 
-      <View className="flex-row items-center px-6 pt-4 pb-3 gap-3">
 
-         <TouchableOpacity
-            onPress={() => router.replace('/(tabs)/home')}
-            activeOpacity={0.7}
-            className="items-center justify-center"
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 18,
-              backgroundColor: C.surfaceContainerHigh,
-              flexShrink: 0,
-            }}
-          >
-            <Feather name="x" size={16} color={C.onSurfaceVariant} />
-        </TouchableOpacity>
-        <View
-          className="flex-1 rounded-full overflow-hidden"
-          style={{ height: 10, backgroundColor: C.surfaceContainerHigh }}
-        >
-          <View
-            className="h-full rounded-full"
-            style={{
-              width: `${progress * 100}%`,
-              backgroundColor: C.primaryContainer,
-            }}
-          />
-        </View>
-        {/* <Text
-          style={{
-            fontFamily: 'Manrope_600SemiBold',
-            fontSize: 12,
-            color: C.onSurfaceVariant,
-            flexShrink: 0,
-          }}
-        >
-          {currentQuestionIndex + 1}/{quizQuestions.length}
-        </Text> */}
-
-        {/* Frasco de elixir da sessão — enche a cada resposta (acerto sobe
-            mais que erro), com gotas + "+XP" flutuando no momento do ganho. */}
-        <ElixirFlaskRN ref={flaskRef} totalUnits={elixirMaximoSessao} size={36} />
-      </View>
-
-      {/* overflow: 'hidden' trava essa área no espaço que o flex:1 já
-          reservou — sem isso, uma pergunta comprida podia fazer o conteúdo
-          crescer além do espaço alocado e empurrar/cortar o header fixo
-          acima (que é irmão desta View, não filho do ScrollView). */}
-      <View style={{ flex: 1, overflow: 'hidden' }}>
-        <ScrollView
-          contentContainerStyle={styles.scroll}
+      {/* Área da pergunta ocupa a tela inteira (inclusive por trás do
+          header) — o header vira uma camada flutuante por cima (ver
+          abaixo), sem fundo próprio, em vez de uma faixa fixa que reserva
+          seu próprio espaço e nunca mostra o que rola por trás dela. */}
+      <View style={{ flex: 1 }}>
+        <Animated.ScrollView
+          ref={scrollViewRef}
+          contentContainerStyle={[styles.scroll, { paddingTop: headerHeight + 24 }]}
           showsVerticalScrollIndicator={false}
+          onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: false })}
+          scrollEventThrottle={16}
         >
           <View style={styles.chipsRow}>
             <View style={[styles.chip, { marginBottom: 0 }]}>
@@ -701,9 +706,70 @@ export default function QuizScreen() {
               </TouchableOpacity>
             )})}
           </View>
-        </ScrollView>
+        </Animated.ScrollView>
+
+        {/* Header flutua por cima do scroll, sem fundo próprio — o
+            conteúdo que passa por baixo (inclusive antes do 1º scroll,
+            atrás da barra de progresso/frasco) fica visível através dele
+            em vez de ficar escondido atrás de uma faixa reservada só pro
+            header. pointerEvents="box-none" deixa o espaço vazio repassar
+            o toque pro scroll por baixo; o X e o frasco continuam tocáveis. */}
+        <View
+          onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
+          pointerEvents="box-none"
+          style={{ position: 'absolute', top: 0, left: 0, right: 0 }}
+        >
+          {/* Some inteiro ao rolar a pergunta — X, barra e frasco juntos,
+              não só barra/frasco. Sem escape sempre visível, mas o header
+              volta assim que rola de volta pro topo. */}
+          <Animated.View
+            style={[
+              { flexDirection: 'row', alignItems: 'center', gap: 12, overflow: 'hidden', paddingHorizontal: 24, paddingTop: 16, paddingBottom: 12 },
+              headerExtraStyle,
+            ]}
+          >
+            <TouchableOpacity
+              onPress={() => router.replace('/(tabs)/home')}
+              activeOpacity={0.7}
+              className="items-center justify-center"
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                backgroundColor: C.surfaceContainerHigh,
+                flexShrink: 0,
+              }}
+            >
+              <Feather name="x" size={16} color={C.onSurfaceVariant} />
+            </TouchableOpacity>
+
+            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <View
+                className="flex-1 rounded-full overflow-hidden"
+                style={{ height: 10, backgroundColor: C.surfaceContainerHigh }}
+              >
+                <View
+                  className="h-full rounded-full"
+                  style={{
+                    width: `${progress * 100}%`,
+                    backgroundColor: C.primaryContainer,
+                  }}
+                />
+              </View>
+
+              {/* Frasco de elixir do dia inteiro — enche a cada resposta
+                  (acerto sobe mais que erro), com gotas + "+XP" flutuando no
+                  momento do ganho. totalUnits vem do máximo capturado em
+                  garantirSessao, não só da lista atual, pra continuar certo
+                  mesmo depois de remontar. */}
+              <ElixirFlaskRN ref={flaskRef} totalUnits={elixirMaximo} size={36} />
+            </View>
+          </Animated.View>
+        </View>
       </View>
 
+      {/* Estático (não flutua/não fica fixo sobre o scroll) — só o fundo
+          continua transparente. */}
       <View style={styles.footer}>
         {!confirmed && selected && (
           <View style={styles.confidenceHint}>
@@ -721,12 +787,17 @@ export default function QuizScreen() {
         )}
         <View style={{ flexDirection: 'row', gap: 12 }}>
         {!confirmed ? (
-          <ConfidenceSlider
-            key={currentQuestion.id}
-            disabled={!selected}
-            onSubmit={confirmarResposta}
-            onReadyChange={setProntoParaConfirmar}
-          />
+          // Escondido até selecionar uma alternativa — antes aparecia
+          // desabilitado (cinza, "Selecione uma opção"), mas ocupando espaço
+          // e chamando atenção pra uma ação que ainda não faz sentido.
+          selected && (
+            <ConfidenceSlider
+              key={currentQuestion.id}
+              disabled={false}
+              onSubmit={confirmarResposta}
+              onReadyChange={setProntoParaConfirmar}
+            />
+          )
         ) : (
           <TouchableOpacity
             style={[styles.nextButton, { flex: 1 }]}
@@ -980,7 +1051,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: 16,
     paddingTop: 12,
-    backgroundColor: C.surface,
   },
   confidenceHint: {
     flexDirection: 'row',

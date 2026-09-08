@@ -155,6 +155,17 @@ export function legendaRevisao(conceito: Pick<Conceito, "proxima_revisao">): str
   return `revisa em ${faltam} ${faltam === 1 ? "dia" : "dias"}`;
 }
 
+// Nível exibido pro aluno, numa escala 0-3: 0 = nunca revisado (status
+// "novo"), 3 = dominado. `nivel_atual` (1-3) do banco já basta pros estados
+// intermediários — o problema era só o "novo" mostrar "Nv.1" com 1 pip
+// aceso, como se já tivesse algum progresso, quando na verdade o aluno nunca
+// tocou nesse conceito ainda.
+export function nivelExibicao(conceito: Pick<Conceito, "status" | "nivel_atual">): 0 | 1 | 2 | 3 {
+  if (conceito.status === "novo") return 0;
+  if (conceito.status === "dominado") return 3;
+  return conceito.nivel_atual;
+}
+
 // Mesma escala de domínio por nível usada no backend (studyContent.service.ts)
 // pra derivar o % de domínio sem esperar o servidor recalcular.
 const NIVEL_MASTERY: Record<number, number> = { 1: 0, 2: 33, 3: 67 };

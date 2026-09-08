@@ -33,6 +33,7 @@ export interface ElixirFlaskHandle {
   gain: (amount: number, gainLabelText?: string) => void;
   reset: () => void;
   getFillPct: () => number;
+  setFill: (amount: number) => void;
 }
 
 interface ElixirFlaskProps {
@@ -230,12 +231,24 @@ const ElixirFlaskRN = forwardRef<ElixirFlaskHandle, ElixirFlaskProps>(function E
     animateLiquidTo(0);
   }
 
+  /**
+   * Define o total acumulado direto, sem pulso/gotas — usada pra "recuperar"
+   * o frasco no nível certo quando a tela remonta com progresso que já
+   * existia (ex: aluno saiu pro Home no meio da dose e voltou), em vez de
+   * reiniciar vazio e fingir que o ganho anterior nunca aconteceu.
+   */
+  function setFill(amount: number) {
+    const newUnits = Math.min(totalUnitsSeguro, Math.max(0, amount));
+    unitsRef.current = newUnits;
+    animateLiquidTo(newUnits / totalUnitsSeguro);
+  }
+
   /** Pega o percentual atual sem disparar animação (0–100). */
   function getFillPct() {
     return (unitsRef.current / totalUnitsSeguro) * 100;
   }
 
-  useImperativeHandle(ref, () => ({ gain, reset, getFillPct }));
+  useImperativeHandle(ref, () => ({ gain, reset, getFillPct, setFill }));
 
   const scale = size / VIEWBOX_W;
   const width = VIEWBOX_W * scale;

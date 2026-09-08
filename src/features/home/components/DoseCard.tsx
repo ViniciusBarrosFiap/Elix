@@ -1,7 +1,6 @@
 import { Entypo, Feather } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useRef } from "react";
-import { Image, Text, TouchableOpacity, useWindowDimensions, View } from "react-native";
+import { Animated, Image, Text, TouchableOpacity, useWindowDimensions, View } from "react-native";
 import { CheckCircle2, Sparkles } from 'lucide-react-native';
 import { useQuizQuestionsStore } from "@/src/store/quizQuestionsStore";
 
@@ -14,6 +13,30 @@ const DoseCard = ({ onPress }: { onPress: () => void }) => {
   // enquanto a dose de verdade ainda nem chegou.
   const concluida = quizData !== null && totalPerguntas === 0;
 
+  // Brilho do card "respirando" — só roda enquanto houver dose pendente, pra
+  // não gastar ciclo de animação à toa quando já tá tudo em dia. Anima só
+  // opacity/scale (useNativeDriver: true) em vez de shadowOpacity/Radius —
+  // essas duas só têm efeito visual no iOS; no Android são ignoradas de
+  // verdade (Android só respeita `elevation`, que nem dá pra colorir/animar
+  // do mesmo jeito). Por isso o halo nunca aparecia fora do card no Android.
+  const pulseAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (concluida) {
+      pulseAnim.setValue(0);
+      return;
+    }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1, duration: 1800, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 0, duration: 1800, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [concluida, pulseAnim]);
+
+  const corGlow = concluida ? "#a855f7" : "#a855f7";
+
   const { width } = useWindowDimensions();
 
   const titleSize = width * 0.065;
@@ -22,20 +45,36 @@ const DoseCard = ({ onPress }: { onPress: () => void }) => {
   const cardPadding = width * 0.055;
 
   return (
+    // Brilho ao redor do card: `boxShadow` (CSS-like, suportado no RN com a
+    // New Architecture — já sempre ativa nesse projeto) em vez de simular
+    // com borda/camadas. Dá um halo de verdade desfocado, e como boxShadow
+    // pinta só PRA FORA da caixa (a View em si não tem backgroundColor),
+    // nada aparece por baixo do card mesmo com o fundo dele transparente.
+    // Enquanto há revisão pendente, "respira" (opacity do halo inteiro
+    // animada); quando concluída, fica parado e mais discreto.
+    <View style={{ marginHorizontal: width * 0.03 }}>
+      <Animated.View
+        pointerEvents="none"
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          borderRadius: 24,
+          boxShadow: [{ offsetX: 0, offsetY: 0, blurRadius: 26, spreadDistance: 2, color: corGlow }],
+          opacity: concluida ? 0.35 : pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [0.1, 0.3] }),
+        }}
+      />
+
     <View
       className="rounded-3xl overflow-hidden"
       style={{
-        marginHorizontal: width * 0.03,
         borderWidth: 1,
         borderColor: "rgba(139,92,246,0.35)",
       }}
     >
-      <LinearGradient
-        colors={["#000000", "#160522", "#120325"]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={{ padding: cardPadding }}
-      >
+      <View style={{ padding: cardPadding }}>
         <Image
           source={require('@/assets/images/complete.png')} 
           style={{
@@ -51,7 +90,7 @@ const DoseCard = ({ onPress }: { onPress: () => void }) => {
         />
 
         {/* Top row */}
-        <View className="flex-row items-start justify-between" style={{ marginBottom: 16 }}>
+        <View className="flex-row items-start justify-between" style={{ marginBottom: 6 }}>
 
           <View className="flex-1" style={{ paddingRight: 12 }}>
             {/* Icon badge */}
@@ -83,15 +122,6 @@ const DoseCard = ({ onPress }: { onPress: () => void }) => {
               style={{ fontSize: titleSize, lineHeight: titleSize * 1.25, marginBottom: 6 }}
             >
               {concluida ? "Revisão em dia" : "Revisão de Hoje"}
-            </Text>
-
-            {/* Subtitle */}
-            <Text className="text-white/50" style={{ fontSize: subtitleSize }}>
-              {concluida ? (
-                <>Você já revisou tudo <Text style={{ color: "#7c3aed" }}>por hoje</Text></>
-              ) : (
-                <>Baseada no que <Text style={{ color: "#7c3aed" }}>você estudou</Text></>
-              )}
             </Text>
           </View>
         </View>
@@ -133,8 +163,8 @@ const DoseCard = ({ onPress }: { onPress: () => void }) => {
               {concluida ? "Praticar mesmo assim" : "Começar revisão"}
             </Text>
         </TouchableOpacity>
-          {/* </LinearGradient> */}
-      </LinearGradient>
+      </View>
+    </View>
     </View>
   );
 };

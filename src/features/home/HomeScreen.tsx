@@ -6,7 +6,7 @@ import {
 } from "@gorhom/bottom-sheet";
 import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useEffect, useRef } from "react";
-import { Animated, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { Animated, ScrollView, StatusBar, Text, TouchableOpacity, View } from "react-native";
 import Header from "./components/Header";
 import DoseCard from "./components/DoseCard";
 import Insights from "./components/Insights";
@@ -20,6 +20,11 @@ import { useUserDataStore } from "@/src/store/userDataStore";
 import { UserService } from "@/src/services/user/user.service";
 import { QuizQuestionsService } from "@/src/services/quiz/quiz.service";
 import { BlurView } from "expo-blur";
+
+// Altura aproximada do Header (pt-16 + pb-6 + logo h-16) — usada só como
+// padding-top do ScrollView, pra o primeiro card não nascer escondido atrás
+// do header flutuante (ver overlay abaixo).
+const HEADER_OVERLAY_HEIGHT = 150;
 
 export default function HomeScreen() {
   // Animação de fade-in e slide-up para os conteúdos da tela
@@ -93,6 +98,7 @@ export default function HomeScreen() {
 
   return userData?.fezUpload ? (
     <View className="flex-1 bg-[#080510]">
+    <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
         <Animated.View
           style={{
             flex: 1,
@@ -100,10 +106,9 @@ export default function HomeScreen() {
           transform: [{ translateY: slideAnim }],
         }}
       >
-        <Header />
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 140 }}
+          contentContainerStyle={{ paddingTop: HEADER_OVERLAY_HEIGHT, paddingBottom: 140 }}
         >
           <DoseCard
             onPress={() => {
@@ -117,6 +122,15 @@ export default function HomeScreen() {
           <YourContents onPress={() => router.push("/(tabs)/studyContents")} />
           <ContentCards macroTemas={studyContentData?.macrotemas} />
         </ScrollView>
+
+        {/* Header flutua por cima do scroll (position absolute), sem fundo
+            próprio — o conteúdo que passa por baixo continua visível através
+            dele, em vez de ficar escondido atrás de uma faixa sólida
+            reservada só pro header. pointerEvents="box-none" deixa o espaço
+            vazio ao redor do logo/badges repassar o toque pro scroll. */}
+        <View style={{ position: "absolute", top: 0, left: 0, right: 0 }} pointerEvents="box-none">
+          <Header />
+        </View>
       </Animated.View>
       <UploadButton onPress={handlePresentModalPress} />
       {/* O BOTTOM SHEET EM SI */}
@@ -157,6 +171,7 @@ export default function HomeScreen() {
   (
 
   <View className="flex-1 bg-[#080510]">
+    <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
     <Animated.View
       style={{
         flex: 1,

@@ -1,37 +1,39 @@
-import { TrendingUp } from "lucide-react-native";
+import { BarChart3, Check, Target, X } from "lucide-react-native";
 import { useMemo } from "react";
 import { Text, View } from "react-native";
 import { useStudyContentStore } from "@/src/store/studyContentStore";
-import { STATUS_CONCEITO_LABEL, StatusConceito } from "@/src/types/studyContent";
-import {
-  MUTED,
-  PRIMARY,
-  PRIMARY_LIGHT,
-  STATUS_CONCEITO_COLOR,
-  STATUS_CONCEITO_ICON,
-  SURFACE_SUBTEMA,
-  averageMastery,
-} from "@/src/features/studyContent/subtemaVisuals";
+import { MUTED, PRIMARY, PRIMARY_LIGHT, SURFACE_SUBTEMA } from "@/src/features/studyContent/subtemaVisuals";
 
-// Ordem de leitura: do que ainda não foi tocado até o que já foi dominado —
-// mesma progressão usada nos outros lugares do app que quebram por status.
-const ORDEM_STATUS: StatusConceito[] = ["novo", "em_reforco", "consolidando", "dominado"];
+const COR_ACERTO = "#22c55e";
+const COR_ERRO = "#ff6b6b";
 
-// Visão geral do progresso do aluno, cruzando todas as disciplinas — antes
-// só existia por disciplina (dentro de cada tela própria); aqui dá pra ver
-// de relance como está o total sem precisar entrar em nenhuma delas.
+// Faixa de cor da taxa de acerto — mesmos limiares de domínio usados no
+// resto do app (>=80 verde, >=34 amarelo/laranja, senão vermelho), pra ler
+// como "saúde do desempenho" de relance.
+function corTaxaAcerto(pct: number): string {
+  if (pct >= 80) return COR_ACERTO;
+  if (pct >= 50) return "#f0a030";
+  return COR_ERRO;
+}
+
+// Relatório de desempenho do aluno, cruzando todas as disciplinas — só
+// acertos, erros e taxa de acerto (o que responde "como eu tô indo?"), sem
+// domínio/breakdown por status, que já vivem na tela de cada disciplina.
 export default function ProgressSection() {
   const studyContentData = useStudyContentStore((state) => state.data);
 
-  const { totalConceitos, porStatus, dominio } = useMemo(() => {
+  const { totalConceitos, totalAcertos, totalErros, taxaAcerto } = useMemo(() => {
     const todos = studyContentData?.macrotemas.flatMap((m) => m.subtemas.flatMap((s) => s.conceitos)) ?? [];
-    const contagem: Record<StatusConceito, number> = { novo: 0, em_reforco: 0, consolidando: 0, dominado: 0 };
-    for (const c of todos) contagem[c.status] += 1;
+
+    const totalAcertos = todos.reduce((acc, c) => acc + c.performance.acertos, 0);
+    const totalErros = todos.reduce((acc, c) => acc + c.performance.erros, 0);
+    const totalRespostas = totalAcertos + totalErros;
 
     return {
       totalConceitos: todos.length,
-      porStatus: contagem,
-      dominio: averageMastery(todos),
+      totalAcertos,
+      totalErros,
+      taxaAcerto: totalRespostas > 0 ? Math.round((totalAcertos / totalRespostas) * 100) : null,
     };
   }, [studyContentData]);
 
@@ -43,51 +45,65 @@ export default function ProgressSection() {
         className="rounded-[24px] p-4"
         style={{ backgroundColor: SURFACE_SUBTEMA, borderWidth: 1, borderColor: `${PRIMARY}26` }}
       >
-        <View className="flex-row items-center justify-between" style={{ marginBottom: 14 }}>
-          <View className="flex-row items-center">
-            <TrendingUp size={16} color={PRIMARY_LIGHT} />
-            <Text className="text-white font-bold ml-2" style={{ fontSize: 14 }}>
-              Seu progresso
-            </Text>
-          </View>
-          <Text className="font-extrabold" style={{ color: PRIMARY_LIGHT, fontSize: 15 }}>
-            {dominio}%
+        <View className="flex-row items-center" style={{ marginBottom: 14 }}>
+          <BarChart3 size={16} color={PRIMARY_LIGHT} />
+          <Text className="text-white font-bold ml-2" style={{ fontSize: 14 }}>
+            Relatório de desempenho
           </Text>
         </View>
 
-        <View
-          className="w-full rounded-full overflow-hidden"
-          style={{ height: 8, backgroundColor: "rgba(255,255,255,0.08)", marginBottom: 16 }}
-        >
+        <View className="flex-row" style={{ gap: 10 }}>
           <View
-            className="h-full rounded-full"
-            style={{
-              width: `${dominio}%`,
-              backgroundColor: PRIMARY,
-              shadowColor: PRIMARY,
-              shadowOpacity: 0.7,
-              shadowRadius: 6,
-              shadowOffset: { width: 0, height: 0 },
-            }}
-          />
-        </View>
+            className="flex-1 items-center rounded-2xl py-3"
+            style={{ backgroundColor: `${COR_ACERTO}14`, borderWidth: 1, borderColor: `${COR_ACERTO}33` }}
+          >
+            <View className="flex-row items-center" style={{ gap: 4 }}>
+              <Check size={12} color={COR_ACERTO} />
+              <Text className="font-extrabold" style={{ color: COR_ACERTO, fontSize: 18 }}>
+                {totalAcertos}
+              </Text>
+            </View>
+            <Text className="text-[10px] mt-0.5" style={{ color: MUTED }}>
+              acertos
+            </Text>
+          </View>
 
-        <View className="flex-row justify-between">
-          {ORDEM_STATUS.map((status) => {
-            const StatusIcon = STATUS_CONCEITO_ICON[status];
-            const cor = STATUS_CONCEITO_COLOR[status];
-            return (
-              <View key={status} className="items-center">
-                <StatusIcon size={14} color={cor} style={{ marginBottom: 4 }} />
-                <Text className="font-extrabold" style={{ color: cor, fontSize: 18 }}>
-                  {porStatus[status]}
-                </Text>
-                <Text className="text-[10px] mt-0.5" style={{ color: MUTED }}>
-                  {STATUS_CONCEITO_LABEL[status]}
-                </Text>
-              </View>
-            );
-          })}
+          <View
+            className="flex-1 items-center rounded-2xl py-3"
+            style={{ backgroundColor: `${COR_ERRO}14`, borderWidth: 1, borderColor: `${COR_ERRO}33` }}
+          >
+            <View className="flex-row items-center" style={{ gap: 4 }}>
+              <X size={12} color={COR_ERRO} />
+              <Text className="font-extrabold" style={{ color: COR_ERRO, fontSize: 18 }}>
+                {totalErros}
+              </Text>
+            </View>
+            <Text className="text-[10px] mt-0.5" style={{ color: MUTED }}>
+              erros
+            </Text>
+          </View>
+
+          <View
+            className="flex-1 items-center rounded-2xl py-3"
+            style={{
+              backgroundColor: `${taxaAcerto !== null ? corTaxaAcerto(taxaAcerto) : MUTED}14`,
+              borderWidth: 1,
+              borderColor: `${taxaAcerto !== null ? corTaxaAcerto(taxaAcerto) : MUTED}33`,
+            }}
+          >
+            <View className="flex-row items-center" style={{ gap: 4 }}>
+              <Target size={12} color={taxaAcerto !== null ? corTaxaAcerto(taxaAcerto) : MUTED} />
+              <Text
+                className="font-extrabold"
+                style={{ color: taxaAcerto !== null ? corTaxaAcerto(taxaAcerto) : MUTED, fontSize: 18 }}
+              >
+                {taxaAcerto !== null ? `${taxaAcerto}%` : "—"}
+              </Text>
+            </View>
+            <Text className="text-[10px] mt-0.5" style={{ color: MUTED }}>
+              taxa de acerto
+            </Text>
+          </View>
         </View>
       </View>
     </View>

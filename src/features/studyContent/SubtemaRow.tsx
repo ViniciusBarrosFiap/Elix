@@ -17,6 +17,7 @@ import {
   SURFACE_CONCEITO,
   classificarSubtema,
   legendaRevisao,
+  nivelExibicao,
   revisaoUrgencia,
 } from "./subtemaVisuals";
 
@@ -32,6 +33,7 @@ function ListaConceitos({ subtema, onSelect }: { subtema: SubTema; onSelect: (co
         const dominado = conceito.status === "dominado";
         const urgencia = revisaoUrgencia(conceito);
         const corUrgencia = urgencia === "atrasado" ? COR_ATRASADO : COR_REVISA_HOJE;
+        const nivel = nivelExibicao(conceito);
 
         return (
           <Pressable
@@ -98,14 +100,14 @@ function ListaConceitos({ subtema, onSelect }: { subtema: SubTema; onSelect: (co
               <View className="flex-row items-center" style={{ gap: 5 }}>
                 <Zap size={11} color={cor} fill={cor} />
                 <Text className="text-[11px] font-bold" style={{ color: cor }}>
-                  Nv.{conceito.nivel_atual}
+                  Nv.{nivel}
                 </Text>
                 <View className="flex-row items-center" style={{ gap: 3, marginLeft: 2 }}>
-                  {[1, 2, 3].map((nivel) => {
-                    const preenchido = nivel <= conceito.nivel_atual;
+                  {[1, 2, 3].map((pip) => {
+                    const preenchido = pip <= nivel;
                     return (
                       <View
-                        key={nivel}
+                        key={pip}
                         style={{
                           width: 14,
                           height: 5,
@@ -172,6 +174,11 @@ function ConceitoDetalheSheet({
       index={0}
       snapPoints={["75%", "95%"]}
       enablePanDownToClose
+      // Padrão da lib é "switch", que MINIMIZA (visualmente fecha) o sheet
+      // do material por baixo assim que este abre — lendo como "o bottom
+      // sheet fecha" ao tocar num conceito. "push" empilha por cima sem
+      // mexer no de baixo.
+      stackBehavior="push"
       backdropComponent={renderBackdrop}
       backgroundComponent={renderBackground}
       handleIndicatorStyle={{ backgroundColor: PRIMARY_LIGHT, width: 40 }}
