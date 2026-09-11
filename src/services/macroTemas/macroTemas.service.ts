@@ -9,4 +9,13 @@ export const MacroTemasService = {
     await StudyContentService.initialize();
     return result;
   },
+
+  async reorder(orderedIds: string[]) {
+    const result = await MacroTemasRepository.reorder(orderedIds);
+    // Mesmo padrão do update(): a store de "Todos os conteúdos" vem do
+    // /api/study-content (com subtemas/progresso), não do /api/macro-temas
+    // enxuto que essa chamada usa — refaz o fetch pra refletir a nova ordem.
+    await StudyContentService.initialize();
+    return result;
+  },
 };

@@ -15,7 +15,13 @@ export default function HomeStackLayout() {
           continua sendo o jeito de sair. */}
       <Stack.Screen name="quiz/index" options={{ gestureEnabled: false }} />
       <Stack.Screen name="quiz/result" />
-      <Stack.Screen name="studyContents/index" />
+      {/* Mesmo motivo do quiz/index acima: segurar+arrastar um card pra
+          reordenar (ReorderableMacroTemas) é um gesto que começa como um
+          toque comum em qualquer ponto da tela, inclusive perto da borda —
+          o swipe-back nativo podia "roubar" esse toque antes do long-press
+          ativar o arrasto, voltando pra Home no meio do gesto e desfazendo a
+          reordenação (que só fica no estado local até soltar o dedo). */}
+      <Stack.Screen name="studyContents/index" options={{ gestureEnabled: false }} />
       <Stack.Screen name="studyContents/[id]/index" />
       <Stack.Screen name="studyContents/addContent" />
     </Stack>

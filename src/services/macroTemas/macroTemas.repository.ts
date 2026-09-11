@@ -19,4 +19,11 @@ export const MacroTemasRepository = {
       body: updates,
     });
   },
+
+  async reorder(orderedIds: string[]): Promise<MacroTemaSummary[]> {
+    return apiFetch<MacroTemaSummary[]>(`/api/macro-temas/reorder`, {
+      method: "PATCH",
+      body: { ordered_ids: orderedIds },
+    });
+  },
 };

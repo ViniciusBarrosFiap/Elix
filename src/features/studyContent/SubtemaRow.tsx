@@ -1,8 +1,9 @@
 import { BlurView } from "expo-blur";
 import { BottomSheetBackdrop, BottomSheetModal, BottomSheetScrollView } from "@gorhom/bottom-sheet";
-import { Check, ChevronDown, Clock, Star, Zap } from "lucide-react-native";
+import { Check, ChevronDown, Clock, Crown, Star, Zap } from "lucide-react-native";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
+import Svg, { Circle } from "react-native-svg";
 import { Conceito, SubTema } from "@/src/types/studyContent";
 import {
   COR_ATRASADO,
@@ -16,130 +17,153 @@ import {
   SUBTEMA_STATUS_LABEL,
   SURFACE_CONCEITO,
   classificarSubtema,
+  conceitoMastery,
   legendaRevisao,
-  nivelExibicao,
   revisaoUrgencia,
 } from "./subtemaVisuals";
 
-// Lista de conceitos de um subtema — cards com status, nível e placar de
-// acertos/erros. Cada card é tocável e abre o detalhe (dica, perguntas,
-// explicações) — antes esse conteúdo só aparecia durante o quiz ao vivo.
-function ListaConceitos({ subtema, onSelect }: { subtema: SubTema; onSelect: (conceito: Conceito) => void }) {
+// Nó da trilha: anel de progresso (SVG) preenchido conforme o domínio do
+// conceito (0/33/67/100%, ver conceitoMastery) — o mesmo círculo que, cheio,
+// vira a moldura da "conquista" quando o conceito é dominado.
+const NO_SIZE = 44;
+const NO_STROKE = 3;
+const NO_RADIUS = (NO_SIZE - NO_STROKE) / 2;
+const NO_CIRCUNFERENCIA = 2 * Math.PI * NO_RADIUS;
+
+function NoConceito({
+  cor,
+  Icon,
+  mastery,
+  destacado,
+}: {
+  cor: string;
+  Icon: typeof Crown;
+  mastery: number;
+  destacado: boolean;
+}) {
+  const offset = NO_CIRCUNFERENCIA * (1 - mastery / 100);
+
   return (
-    <View style={{ gap: 10 }}>
-      {subtema.conceitos.map((conceito) => {
+    <View style={{ width: NO_SIZE, height: NO_SIZE }}>
+      <Svg width={NO_SIZE} height={NO_SIZE} style={{ position: "absolute" }}>
+        <Circle
+          cx={NO_SIZE / 2}
+          cy={NO_SIZE / 2}
+          r={NO_RADIUS}
+          stroke="rgba(255,255,255,0.08)"
+          strokeWidth={NO_STROKE}
+          fill="none"
+        />
+        {mastery > 0 && (
+          <Circle
+            cx={NO_SIZE / 2}
+            cy={NO_SIZE / 2}
+            r={NO_RADIUS}
+            stroke={cor}
+            strokeWidth={NO_STROKE}
+            fill="none"
+            strokeDasharray={`${NO_CIRCUNFERENCIA} ${NO_CIRCUNFERENCIA}`}
+            strokeDashoffset={offset}
+            strokeLinecap="round"
+            rotation={-90}
+            origin={`${NO_SIZE / 2}, ${NO_SIZE / 2}`}
+          />
+        )}
+      </Svg>
+      <View style={{ width: NO_SIZE, height: NO_SIZE, alignItems: "center", justifyContent: "center" }}>
+        <View
+          style={{
+            width: NO_SIZE - 14,
+            height: NO_SIZE - 14,
+            borderRadius: (NO_SIZE - 14) / 2,
+            backgroundColor: SURFACE_CONCEITO,
+            alignItems: "center",
+            justifyContent: "center",
+            borderWidth: 1,
+            borderColor: `${cor}33`,
+          }}
+        >
+          {destacado ? <Star size={13} color="#f0a030" fill="#f0a030" /> : <Icon size={15} color={cor} />}
+        </View>
+      </View>
+    </View>
+  );
+}
+
+// Trilha de conceitos de um subtema — cada conceito é um nó (anel de domínio)
+// numa linha vertical, em vez de um card solto: reforça a leitura de
+// "progresso numa jornada" (like um mapa de fases) em vez de uma lista plana.
+// A ordem é a mesma que já vem da API — nenhum nó fica bloqueado, é só o
+// desenho da trilha que muda; qualquer conceito continua tocável a qualquer
+// momento (não faria sentido "trancar" revisão por causa de spaced repetition).
+function TrilhaConceitos({ subtema, onSelect }: { subtema: SubTema; onSelect: (conceito: Conceito) => void }) {
+  const conceitos = subtema.conceitos;
+
+  return (
+    <View>
+      {conceitos.map((conceito, i) => {
         const cor = STATUS_CONCEITO_COLOR[conceito.status];
         const StatusIcon = STATUS_CONCEITO_ICON[conceito.status];
         const dominado = conceito.status === "dominado";
         const urgencia = revisaoUrgencia(conceito);
         const corUrgencia = urgencia === "atrasado" ? COR_ATRASADO : COR_REVISA_HOJE;
-        const nivel = nivelExibicao(conceito);
+        const mastery = conceitoMastery(conceito);
+        const isLast = i === conceitos.length - 1;
 
         return (
           <Pressable
             key={conceito.id}
             onPress={() => onSelect(conceito)}
-            className="rounded-[18px] p-4 active:opacity-80"
-            style={{
-              backgroundColor: SURFACE_CONCEITO,
-              borderWidth: 1,
-              borderColor: dominado ? "rgba(34,197,94,0.35)" : "rgba(255,255,255,0.04)",
-              ...(dominado
-                ? {
-                    shadowColor: "#22c55e",
-                    shadowOpacity: 0.25,
-                    shadowRadius: 12,
-                    shadowOffset: { width: 0, height: 0 },
-                  }
-                : null),
-            }}
+            className="flex-row active:opacity-70"
+            style={{ paddingBottom: isLast ? 0 : 14 }}
           >
-            <View className="flex-row items-center justify-between mb-2">
-              <View className="flex-row items-center flex-1 mr-2">
+            <View style={{ width: NO_SIZE, alignItems: "center" }}>
+              <NoConceito cor={cor} Icon={StatusIcon} mastery={mastery} destacado={conceito.tag_foco} />
+              {!isLast && (
                 <View
-                  className="w-7 h-7 rounded-full items-center justify-center mr-2.5"
                   style={{
-                    backgroundColor: conceito.tag_foco ? "rgba(240,160,48,0.16)" : `${cor}22`,
-                    borderWidth: 1,
-                    borderColor: conceito.tag_foco ? "rgba(240,160,48,0.4)" : `${cor}44`,
+                    width: 2,
+                    flex: 1,
+                    minHeight: 16,
+                    marginTop: 2,
+                    backgroundColor: dominado ? cor : "rgba(255,255,255,0.1)",
+                    opacity: dominado ? 0.5 : 1,
                   }}
-                >
-                  {conceito.tag_foco ? (
-                    <Star size={12} color="#f0a030" fill="#f0a030" />
-                  ) : (
-                    <StatusIcon size={12} color={cor} />
-                  )}
-                </View>
-                <Text className="text-white text-[13px] font-medium flex-1" numberOfLines={2}>
+                />
+              )}
+            </View>
+
+            <View style={{ flex: 1, marginLeft: 12, paddingTop: 4 }}>
+              <View className="flex-row items-start justify-between mb-1">
+                <Text className="text-white text-[13px] font-medium flex-1 mr-2" numberOfLines={2}>
                   {conceito.nome}
                 </Text>
-              </View>
-              <View className="flex-row items-center" style={{ gap: 6 }}>
-                {/* Tag de urgência — antes essa informação só aparecia meio
-                    escondida na linha de baixo (texto + ícone de relógio);
-                    como badge ao lado do status, salta aos olhos direto na
-                    lista, sem precisar ler cada card. Atrasado (vermelho) e
-                    "vence hoje" (azul) são estados diferentes — só o primeiro
-                    é de fato uma pendência acumulada. */}
                 {urgencia && (
                   <View
-                    className="flex-row items-center px-2.5 py-1 rounded-full"
-                    style={{ gap: 4, backgroundColor: `${corUrgencia}29`, borderWidth: 1, borderColor: `${corUrgencia}66` }}
+                    className="flex-row items-center px-2 py-0.5 rounded-full"
+                    style={{ gap: 3, backgroundColor: `${corUrgencia}29`, borderWidth: 1, borderColor: `${corUrgencia}66` }}
                   >
-                    <Clock size={10} color={corUrgencia} />
-                    <Text className="text-[10px] uppercase font-bold tracking-wider" style={{ color: corUrgencia }}>
-                      {urgencia === "atrasado" ? "Vencido" : "Revisa hoje"}
+                    <Clock size={9} color={corUrgencia} />
+                    <Text className="text-[9px] uppercase font-bold tracking-wider" style={{ color: corUrgencia }}>
+                      {urgencia === "atrasado" ? "Vencido" : "Hoje"}
                     </Text>
                   </View>
                 )}
               </View>
-            </View>
 
-            <View className="flex-row items-center justify-between">
-              {/* Nível — mesmo vocabulário visual (raio + pips) do chip de nível do quiz */}
-              <View className="flex-row items-center" style={{ gap: 5 }}>
-                <Zap size={11} color={cor} fill={cor} />
-                <Text className="text-[11px] font-bold" style={{ color: cor }}>
-                  Nv.{nivel}
-                </Text>
-                <View className="flex-row items-center" style={{ gap: 3, marginLeft: 2 }}>
-                  {[1, 2, 3].map((pip) => {
-                    const preenchido = pip <= nivel;
-                    return (
-                      <View
-                        key={pip}
-                        style={{
-                          width: 14,
-                          height: 5,
-                          borderRadius: 2.5,
-                          backgroundColor: preenchido ? cor : "rgba(255,255,255,0.12)",
-                          ...(preenchido
-                            ? {
-                                shadowColor: cor,
-                                shadowOpacity: 0.7,
-                                shadowRadius: 3,
-                                shadowOffset: { width: 0, height: 0 },
-                              }
-                            : null),
-                        }}
-                      />
-                    );
-                  })}
+              {dominado ? (
+                <View className="flex-row items-center" style={{ gap: 4 }}>
+                  <Crown size={11} color={cor} />
+                  <Text className="text-[11px] font-bold" style={{ color: cor }}>
+                    Dominado
+                  </Text>
                 </View>
-              </View>
-            </View>
-
-            {/* Quando revisa de novo — só aparece aqui embaixo se não tem
-                urgência (senão duplicaria a tag "Vencido"/"Revisa hoje" lá
-                em cima com a mesma informação). */}
-            {!dominado && !urgencia && (
-              <View className="flex-row items-center mt-2" style={{ gap: 4 }}>
-                <Clock size={11} color={MUTED} />
+              ) : !urgencia ? (
                 <Text className="text-[11px]" style={{ color: MUTED }}>
                   {legendaRevisao(conceito)}
                 </Text>
-              </View>
-            )}
+              ) : null}
+            </View>
           </Pressable>
         );
       })}
@@ -308,6 +332,7 @@ export function SubtemaRow({ subtema, isLast, expandAllSignal, collapseAllSignal
   const totalmenteDominado = status === "dominado";
 
   const totalConceitos = subtema.conceitos.length;
+  const dominados = subtema.conceitos.filter((c) => c.status === "dominado").length;
   const urgencias = subtema.conceitos.map(revisaoUrgencia);
   const atrasados = urgencias.filter((u) => u === "atrasado").length;
   const revisamHoje = urgencias.filter((u) => u === "hoje").length;
@@ -382,9 +407,15 @@ export function SubtemaRow({ subtema, isLast, expandAllSignal, collapseAllSignal
                 </Text>
               </View>
             )}
-            <Text className="text-[11px]" style={{ color: MUTED }}>
-              {totalConceitos} {totalConceitos === 1 ? "conceito" : "conceitos"}
-            </Text>
+            {/* Fração de dominados em vez de só "N conceitos" — a mesma
+                linguagem de progresso da trilha (nós preenchidos) resumida
+                no cabeçalho, pra bater o olho sem precisar abrir. */}
+            <View className="flex-row items-center" style={{ gap: 3 }}>
+              <Crown size={10} color={dominados > 0 ? SUBTEMA_STATUS_COLOR.dominado : MUTED} />
+              <Text className="text-[11px]" style={{ color: MUTED }}>
+                {dominados}/{totalConceitos} dominados
+              </Text>
+            </View>
           </View>
         </View>
 
@@ -393,19 +424,12 @@ export function SubtemaRow({ subtema, isLast, expandAllSignal, collapseAllSignal
         </View>
       </Pressable>
 
-      {/* Conceitos ficam recuados sob uma guia vertical fina — um degrau mais
-          profundo que a indentação do subtema sob o material. */}
+      {/* A trilha (TrilhaConceitos) já desenha sua própria linha vertical
+          ligando os nós — só um recuo aqui, sem guia própria (senão duas
+          linhas quase coladas). */}
       {aberto && (
-        <View
-          style={{
-            marginTop: 14,
-            marginLeft: 15,
-            paddingLeft: 13,
-            borderLeftWidth: 1.5,
-            borderLeftColor: "rgba(255,255,255,0.07)",
-          }}
-        >
-          <ListaConceitos subtema={subtema} onSelect={abrirDetalheConceito} />
+        <View style={{ marginTop: 14, marginLeft: 15 }}>
+          <TrilhaConceitos subtema={subtema} onSelect={abrirDetalheConceito} />
         </View>
       )}
 

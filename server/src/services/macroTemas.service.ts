@@ -173,3 +173,24 @@ export async function updateMacroTema(
 
   return updated;
 }
+
+/**
+ * Persiste a nova ordem dos cards em "Todos os conteúdos" (arrastar e
+ * soltar) — a posição de cada id no array recebido vira o novo valor da
+ * coluna `ordem`, a mesma usada em listMacroTemas/getStudyContent pra
+ * ordenar. `.eq("user_id", userId)` em cada update garante que um id de
+ * outro usuário simplesmente não casa com nenhuma linha (0 rows afetadas),
+ * em vez de reordenar dado de terceiro.
+ */
+export async function reorderMacroTemas(userId: string, orderedIds: string[]): Promise<void> {
+  const resultados = await Promise.all(
+    orderedIds.map((id, index) =>
+      supabase.from("macro_temas").update({ ordem: index }).eq("id", id).eq("user_id", userId)
+    )
+  );
+
+  const erro = resultados.find((r) => r.error);
+  if (erro?.error) {
+    throw new HttpError(500, "Falha ao salvar a nova ordem das disciplinas.");
+  }
+}

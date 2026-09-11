@@ -10,3 +10,11 @@ export const updateMacroTemaSchema = z
   });
 
 export type UpdateMacroTemaInput = z.infer<typeof updateMacroTemaSchema>;
+
+// Reordenar (arrastar card em "Todos os conteúdos"): a lista completa de ids
+// na nova ordem desejada — cada posição no array vira o novo valor de `ordem`.
+export const reorderMacroTemasSchema = z.object({
+  ordered_ids: z.array(z.string().min(1)).min(1),
+});
+
+export type ReorderMacroTemasInput = z.infer<typeof reorderMacroTemasSchema>;
