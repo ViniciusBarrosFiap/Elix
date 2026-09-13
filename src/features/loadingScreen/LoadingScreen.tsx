@@ -4,6 +4,7 @@ import { FlaskConical } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Stop } from 'react-native-svg';
 import { useRouter, useLocalSearchParams, RelativePathString } from 'expo-router';
+import { colors } from '@/src/theme/colors';
 
 /**
  * Dependência extra usada no fundo líquido:
@@ -145,7 +146,7 @@ function LiquidWaveBackground({ progressRef }: { progressRef: React.MutableRefOb
       <Defs>
         {/* mesmas cores do fundo original, só que agora com onda em vez de retângulo deslizando */}
         <SvgLinearGradient id="loadingLiquidBg" x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor="#8A2BE2" stopOpacity="1" />
+          <Stop offset="0" stopColor={colors.primaryContainer} stopOpacity="1" />
           <Stop offset="1" stopColor="#000000" stopOpacity="1" />
         </SvgLinearGradient>
       </Defs>
@@ -222,8 +223,8 @@ export default function LoadingScreen({ next, title, subtitle }: Props) {
   const enterTranslateY = enterAnim.interpolate({ inputRange: [0, 1], outputRange: [16, 0] });
 
   return (
-    <View className="flex-1 bg-[#16111b]">
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: '#16111b' }]} />
+    <View className="flex-1 bg-surface">
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.surface }]} />
 
       {/* Fundo líquido: onda em SVG subindo com o progresso, mesmas cores de antes */}
       <LiquidWaveBackground progressRef={bgProgressRef} />
@@ -297,14 +298,14 @@ export default function LoadingScreen({ next, title, subtitle }: Props) {
             e centralizem em relação à tela, e não em relação ao próprio texto */}
         <View style={{ marginTop: 40, width: '100%', paddingHorizontal: 32, alignItems: 'center' }}>
           {/* <Text
-            className="font-bold mb-3 text-[#eed9ff]/90"
+            className="font-bold mb-3 text-onPrimaryContainer/90"
             style={{ fontFamily: 'Manrope', fontSize: 64, letterSpacing: 1, textAlign: 'center', alignSelf: 'stretch' }}
           >
             {percentage}
           </Text> */}
 
           {/* <Text
-            className="font-bold text-[#eed9ff]"
+            className="font-bold text-onPrimaryContainer"
             style={{
               fontFamily: 'Manrope',
               fontSize: 22,
@@ -317,7 +318,7 @@ export default function LoadingScreen({ next, title, subtitle }: Props) {
           </Text>
 
           <Text
-            className="mt-4 text-base text-[#cfc2d7]"
+            className="mt-4 text-base text-onSurfaceVariant"
             style={{ fontFamily: 'Manrope', textAlign: 'center', alignSelf: 'stretch' }}
           >
             {finalSubtitle}

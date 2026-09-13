@@ -3,16 +3,17 @@ import { useMemo } from "react";
 import { Text, View } from "react-native";
 import { useStudyContentStore } from "@/src/store/studyContentStore";
 import { MUTED, PRIMARY, PRIMARY_LIGHT, SURFACE_SUBTEMA } from "@/src/features/studyContent/subtemaVisuals";
+import { semantic } from "@/src/theme/colors";
 
-const COR_ACERTO = "#22c55e";
-const COR_ERRO = "#ff6b6b";
+const COR_ACERTO = semantic.success;
+const COR_ERRO = semantic.danger;
 
 // Faixa de cor da taxa de acerto — mesmos limiares de domínio usados no
 // resto do app (>=80 verde, >=34 amarelo/laranja, senão vermelho), pra ler
 // como "saúde do desempenho" de relance.
 function corTaxaAcerto(pct: number): string {
   if (pct >= 80) return COR_ACERTO;
-  if (pct >= 50) return "#f0a030";
+  if (pct >= 50) return semantic.warning;
   return COR_ERRO;
 }
 

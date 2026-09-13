@@ -133,7 +133,6 @@ const DoseCard = ({ onPress }: { onPress: () => void }) => {
             <Feather name="clock" size={subtitleSize * 1.1} color="rgba(255,255,255,0.4)" />
             <Text className="text-white/40" style={{ fontSize: subtitleSize, marginLeft: 6 }}>
               {totalPerguntas} perguntas
-              <Text className="text-white/25">{"  |  "}Revisão rápida</Text>
             </Text>
           </View>
         )}
@@ -145,7 +144,7 @@ const DoseCard = ({ onPress }: { onPress: () => void }) => {
         <TouchableOpacity
           onPress={onPress}
           activeOpacity={0.85}
-          className="w-full flex-row items-center justify-center gap-x-3 py-4 rounded-full bg-[#672cc7] shadow-[#8a2be2] shadow-offset-[0px_10px] shadow-radius-30 elevation-10"
+          className="w-full flex-row items-center justify-center gap-x-3 py-4 rounded-full bg-[#672cc7] shadow-primaryContainer shadow-offset-[0px_10px] shadow-radius-30 elevation-10"
         >
           {/* <LinearGradient
             colors={["#6d28d9", "#5b21b6"]}
@@ -159,7 +158,7 @@ const DoseCard = ({ onPress }: { onPress: () => void }) => {
               paddingHorizontal: cardPadding,
             }}
           > */}
-            <Text className="text-[#eed9ff] font-bold text-lg">
+            <Text className="text-onPrimaryContainer font-bold text-lg">
               {concluida ? "Praticar mesmo assim" : "Começar revisão"}
             </Text>
         </TouchableOpacity>

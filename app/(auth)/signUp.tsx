@@ -14,16 +14,17 @@ import { Check, ChevronDown, ArrowRight, Sparkles, CalendarDays } from 'lucide-r
 import { LinearGradient } from 'expo-linear-gradient'
 import { useRouter } from 'expo-router'
 import { UserService } from "@/src/services/user/user.service";
+import { colors, semantic, surfaceDim } from '@/src/theme/colors';
 
 // Tokens do design system "The Cognitive Sanctuary" — mesmos já usados no
 // resto do app (ver studyContents/[id]/index.tsx, ProfileScreen.tsx), pra
 // essa tela deixar de ser a única com a paleta antiga do DESIGN.md.
-const PRIMARY = "#8a2be2";
-const PRIMARY_LIGHT = "#dcb8ff";
-const ON_PRIMARY_CONTAINER = "#eed9ff";
-const SURFACE_DIM = "#080510";
-const SURFACE_CARD = "#120e1c";
-const MUTED = "#a09ba8";
+const PRIMARY = colors.primaryContainer;
+const PRIMARY_LIGHT = colors.primary;
+const ON_PRIMARY_CONTAINER = colors.onPrimaryContainer;
+const SURFACE_DIM = surfaceDim.base;
+const SURFACE_CARD = surfaceDim.subtema;
+const MUTED = semantic.muted;
 
 // ── Types
 type Option = { label: string; value: string }
@@ -234,7 +235,7 @@ export default function OnboardingScreen() {
                   className="active:opacity-90"
                 >
                   <LinearGradient
-                    colors={podeAvancar ? [PRIMARY, "#5b3285"] : ["#231d28", "#231d28"]}
+                    colors={podeAvancar ? [PRIMARY, "#5b3285"] : [colors.surfaceContainer, colors.surfaceContainer]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={{

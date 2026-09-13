@@ -108,10 +108,10 @@ function DisciplinaRow({
             elevation: isDragging ? 8 : 0,
           },
         ]}
-        className="flex-row items-center rounded-2xl p-4 border border-white/10 bg-[#120e1c]"
+        className="flex-row items-center rounded-2xl p-4 border border-white/10 bg-surfaceDim-subtema"
       >
         <View
-          className="w-12 h-12 rounded-xl bg-[#1a1528] items-center justify-center border border-[#8a2be2]/20 mr-4"
+          className="w-12 h-12 rounded-xl bg-surfaceDim-conceito items-center justify-center border border-primaryContainer/20 mr-4"
           style={{ height: CARD_HEIGHT - 32 }}
         >
           <Text className="text-2xl">{macroTema.emoji}</Text>
@@ -120,7 +120,7 @@ function DisciplinaRow({
           <Text className="text-white text-base font-semibold mb-1" numberOfLines={1}>
             {macroTema.nome}
           </Text>
-          <Text className="text-[#a09ba8] text-sm" numberOfLines={1}>
+          <Text className="text-muted text-sm" numberOfLines={1}>
             {STATUS_LABEL[macroTema.status]} · {macroTema.progresso}% · {macroTema.subtemas_ativos}{" "}
             {macroTema.subtemas_ativos === 1 ? "subtema" : "subtemas"}
           </Text>

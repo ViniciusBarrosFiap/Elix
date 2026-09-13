@@ -48,6 +48,7 @@ import {
   legendaRevisao,
   revisaoUrgencia,
 } from "@/src/features/studyContent/subtemaVisuals";
+import { semantic } from "@/src/theme/colors";
 
 // Largura de cada card do carrossel de Insights da disciplina.
 const INSIGHT_CARD_WIDTH = 150;
@@ -219,19 +220,19 @@ export default function DisciplinaDetalhe() {
   const motivoInsight = (conceito: (typeof insightsDaDisciplina)[number]["conceito"]) => {
     if (conceito.performance.erros > 0) {
       const n = conceito.performance.erros;
-      return { texto: `${n} ${n === 1 ? "erro" : "erros"}`, cor: "#ff6b6b", Icone: Flame };
+      return { texto: `${n} ${n === 1 ? "erro" : "erros"}`, cor: semantic.danger, Icone: Flame };
     }
     const urgencia = revisaoUrgencia(conceito);
     if (urgencia) {
       // Atrasado é vermelho (pendência acumulada); "vence hoje" é só um
       // lembrete, então usa o azul neutro em vez do mesmo alarme do atraso.
-      const cor = urgencia === "atrasado" ? "#ff6b6b" : "#60a5fa";
+      const cor = urgencia === "atrasado" ? semantic.danger : semantic.info;
       return { texto: legendaRevisao(conceito), cor, Icone: Clock };
     }
     if (conceito.tag_foco) {
-      return { texto: "marcado como foco", cor: "#f0a030", Icone: Star };
+      return { texto: "marcado como foco", cor: semantic.warning, Icone: Star };
     }
-    return { texto: "novo", cor: "#60a5fa", Icone: Sparkles };
+    return { texto: "novo", cor: semantic.info, Icone: Sparkles };
   };
 
   useEffect(() => {
@@ -241,7 +242,7 @@ export default function DisciplinaDetalhe() {
   // Faixa de cor por domínio — mesmos limiares do statusFromMastery no
   // backend (>=80 consolidando, >=34 em reforço, senão começando), pra ler
   // junto com o resto do app em vez de inventar uma escala nova.
-  const corDominio = (pct: number) => (pct >= 80 ? "#22c55e" : pct >= 34 ? "#f0a030" : "#60a5fa");
+  const corDominio = (pct: number) => (pct >= 80 ? semantic.success : pct >= 34 ? semantic.warning : semantic.info);
 
   const renderMaterial = (resumo: ResumoMaterial) => {
     const { material, totalSubtemas, totalConceitos: conceitosDoMaterial, totalVencidos, totalAtrasados, dominio } = resumo;

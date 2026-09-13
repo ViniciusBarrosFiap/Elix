@@ -19,11 +19,12 @@ import DateTimePicker, {
   DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
 import { NotificationsService } from '@/src/services/notifications/notifications.service';
+import { colors } from '@/src/theme/colors';
 
-const PRIMARY = '#8a2be2';
-const PRIMARY_LIGHT = '#dcb8ff';
-const ON_PRIMARY_CONTAINER = '#eed9ff';
-const MUTED = '#cfc2d7';
+const PRIMARY = colors.primaryContainer;
+const PRIMARY_LIGHT = colors.primary;
+const ON_PRIMARY_CONTAINER = colors.onPrimaryContainer;
+const MUTED = colors.onSurfaceVariant;
 
 function horarioPadrao(): Date {
   const d = new Date();
@@ -150,7 +151,7 @@ export default function ReminderScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-[#16111b]" edges={['top', 'bottom']}>
+    <SafeAreaView className="flex-1 bg-surface" edges={['top', 'bottom']}>
       <StatusBar barStyle="light-content" />
 
       {/* Glow ambiente */}
@@ -209,7 +210,7 @@ export default function ReminderScreen() {
           onPress={abrirSeletor}
           className="w-full flex-row items-center justify-between rounded-2xl active:opacity-80"
           style={{
-            backgroundColor: '#110c16',
+            backgroundColor: colors.surfaceContainerLowest,
             borderWidth: 1,
             borderColor: 'rgba(255,255,255,0.08)',
             padding: 20,

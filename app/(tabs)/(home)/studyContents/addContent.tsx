@@ -43,6 +43,7 @@ import { StudyContentService } from '@/src/services/studyContent/studyContent.se
 import { MacroTemaListItem } from '@/src/services/studyContent/studyContent.repository';
 import { MaterialsService } from '@/src/services/materials/materials.service';
 import { NotionService, NotionPage } from '@/src/services/notion/notion.service';
+import { colors, semantic } from '@/src/theme/colors';
 
 type TagItem = {
   id: string;
@@ -63,23 +64,8 @@ const NOTION_FILE_ID = 'notion-page';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-// ─── Design Tokens 
-const C = {
-  surface:                '#16111b',
-  surfaceContainerLowest: '#110c16',
-  surfaceContainerLow:    '#1f1924',
-  surfaceContainer:       '#231d28',
-  surfaceContainerHigh:   '#2e2832',
-  surfaceContainerHighest:'#39323d',
-  primaryContainer:       '#8a2be2',
-  onPrimaryContainer:     '#eed9ff',
-  primary:                '#dcb8ff',
-  onSurface:              '#eadfee',
-  onSurfaceVariant:       '#cfc2d7',
-  outlineVariant:         '#4c4354',
-  secondaryContainer:     '#5d3587',
-  onSecondaryContainer:   '#d2a6ff',
-};
+// ─── Design Tokens — paleta compartilhada em src/theme/colors.ts.
+const C = colors;
 
 export default function AddContent() {
   // Disciplina pré-selecionada quando chega a partir da tela de uma
@@ -421,7 +407,7 @@ export default function AddContent() {
       {/* Ambient violet glow */}
       <View pointerEvents="none" className="absolute inset-0 opacity-30">
         <LinearGradient
-          colors={['transparent', '#8a2be2', 'transparent']}
+          colors={['transparent', colors.primaryContainer, 'transparent']}
           start={{ x: 0.5, y: 0.4 }}
           end={{ x: 0.5, y: 0.9 }}
           style={{ flex: 1 }}
@@ -449,7 +435,7 @@ export default function AddContent() {
               Adicionar conteúdo
             </Text>
             {/* Subtítulo Maior (Aumentado para text-base) */}
-            <Text className="text-[#a09ba8] text-base text-center mt-4 leading-6 px-2">
+            <Text className="text-muted text-base text-center mt-4 leading-6 px-2">
               Reforce o que estudou e adicione materiais para gerar sua
               revisão.
             </Text>
@@ -466,21 +452,21 @@ export default function AddContent() {
         <View className="mt-5">
           <View className="rounded-3xl p-4">
             <View className="flex-row items-center mb-6">
-              <View className="w-12 h-12 rounded-xl bg-[#1a1528] items-center justify-center border border-[#8a2be2]/20 mr-4">
-                <BookOpen size={22} color="#8A2BE2" />
+              <View className="w-12 h-12 rounded-xl bg-surfaceDim-conceito items-center justify-center border border-primaryContainer/20 mr-4">
+                <BookOpen size={22} color={colors.primaryContainer} />
               </View>
               <View className="flex-1">
                 <View className="flex-row items-center mb-1.5">
                   <Text className="text-lg font-semibold text-[#f8f8f8] mr-3">
                     Disciplina
                   </Text>
-                  <View className="px-2.5 py-1 rounded-full bg-[#8a2be2]/10 border border-[#8a2be2]/20">
-                    <Text className="text-[11px] uppercase font-bold tracking-wider text-[#8A2BE2]">
+                  <View className="px-2.5 py-1 rounded-full bg-primaryContainer/10 border border-primaryContainer/20">
+                    <Text className="text-[11px] uppercase font-bold tracking-wider text-primaryContainer">
                       Obrigatório
                     </Text>
                   </View>
                 </View>
-                {/* <Text className="text-sm text-[#a09ba8]">
+                {/* <Text className="text-sm text-muted">
                   A qual disciplina este material pertence?
                 </Text> */}
               </View>
@@ -488,20 +474,20 @@ export default function AddContent() {
 
             <Pressable
               onPress={() => !isLoadingMacroTemas && setIsMacroTemaPickerOpen(true)}
-              className="w-full flex-row items-center justify-between border border-[#8a2be2]/40 rounded-2xl px-5 py-4 bg-[#110e1b]/50"
+              className="w-full flex-row items-center justify-between border border-primaryContainer/40 rounded-2xl px-5 py-4 bg-surfaceContainerLowest/50"
             >
-              <Text className={selectedMacroTema ? 'text-white text-base' : 'text-[#a09ba8] text-base'}>
+              <Text className={selectedMacroTema ? 'text-white text-base' : 'text-muted text-base'}>
                 {isLoadingMacroTemas
                   ? 'Carregando disciplinas...'
                   : selectedMacroTema
                     ? `${selectedMacroTema.emoji}  ${selectedMacroTema.nome}`
                     : 'Selecione uma disciplina'}
               </Text>
-              <ChevronDown size={20} color="#a09ba8" />
+              <ChevronDown size={20} color={semantic.muted} />
             </Pressable>
 
             {!isLoadingMacroTemas && macroTemas.length === 0 && (
-              <Text className="text-xs text-[#a09ba8] mt-3">
+              <Text className="text-xs text-muted mt-3">
                 Nenhuma disciplina cadastrada ainda. Volte ao onboarding para adicionar.
               </Text>
             )}
@@ -518,7 +504,7 @@ export default function AddContent() {
             className="flex-1 bg-black/60 justify-end"
             onPress={() => setIsMacroTemaPickerOpen(false)}
           >
-            <View className="bg-[#1a1528] rounded-t-3xl overflow-hidden">
+            <View className="bg-surfaceDim-conceito rounded-t-3xl overflow-hidden">
               <View className="px-6 pt-5 pb-4 border-b border-white/10">
                 <Text className="text-white text-base font-semibold">Selecione a disciplina</Text>
               </View>
@@ -538,7 +524,7 @@ export default function AddContent() {
                       {item.emoji}  {item.nome}
                     </Text>
                     {item.id === selectedMacroTemaId && (
-                      <Feather name="check" size={18} color="#dcb8ff" />
+                      <Feather name="check" size={18} color={colors.primary} />
                     )}
                   </Pressable>
                 )}
@@ -555,8 +541,8 @@ export default function AddContent() {
             {/* Section header */}
             <View className="flex-row items-center mb-6">
               {/* Ícone maior */}
-              <View className="w-12 h-12 rounded-xl bg-[#1a1528] items-center justify-center border border-[#8a2be2]/20 mr-4">
-                <Tag size={22} color="#8A2BE2" />
+              <View className="w-12 h-12 rounded-xl bg-surfaceDim-conceito items-center justify-center border border-primaryContainer/20 mr-4">
+                <Tag size={22} color={colors.primaryContainer} />
               </View>
               <View className="flex-1">
                 <View className="flex-row items-center mb-1.5">
@@ -564,26 +550,26 @@ export default function AddContent() {
                   <Text className="text-lg font-semibold text-[#f8f8f8] mr-3">
                     Foco da revisão
                   </Text>
-                  <View className="px-2.5 py-1 rounded-full bg-[#8a2be2]/10 border border-[#8a2be2]/20">
-                    <Text className="text-[11px] uppercase font-bold tracking-wider text-[#8A2BE2]">
+                  <View className="px-2.5 py-1 rounded-full bg-primaryContainer/10 border border-primaryContainer/20">
+                    <Text className="text-[11px] uppercase font-bold tracking-wider text-primaryContainer">
                       Opcional
                     </Text>
                   </View>
                 </View>
                 {/* Texto de apoio aumentado para text-sm */}
-                {/* <Text className="text-sm text-[#a09ba8]">
+                {/* <Text className="text-sm text-muted">
                   Adicione tags com os temas que você quer revisar mais.
                 </Text> */}
               </View>
             </View>
 
             {/* Tags container */}
-            <View className="border border-[#8a2be2]/40 rounded-2xl p-5 bg-[#110e1b]/50">
+            <View className="border border-primaryContainer/40 rounded-2xl p-5 bg-surfaceContainerLowest/50">
               <View className="flex-row flex-wrap mb-2">
                 {tags.map((tag) => (
                   <View key={tag.id} className="mr-2.5 mb-2.5">
                     {/* Tags visivelmente maiores: texto text-base e mais padding vertical/horizontal */}
-                    <View className="flex-row items-center rounded-full bg-[#8a2be2]/15 border border-[#8a2be2]/30 pl-5 pr-3 py-2">
+                    <View className="flex-row items-center rounded-full bg-primaryContainer/15 border border-primaryContainer/30 pl-5 pr-3 py-2">
                       <Text className="text-base font-medium text-white/90 mr-3">
                         {tag.label}
                       </Text>
@@ -601,7 +587,7 @@ export default function AddContent() {
 
               {/* Botão / Input de adicionar tag maiores */}
               {isAddingTag ? (
-                <View className="flex-row items-center mt-3 border border-[#8a2be2]/60 rounded-xl bg-[#1a1528] px-4 py-3">
+                <View className="flex-row items-center mt-3 border border-primaryContainer/60 rounded-xl bg-surfaceDim-conceito px-4 py-3">
                   <TextInput
                     className="flex-1 text-base font-medium text-white p-0 mr-3"
                     placeholder="Digite a tag..."
@@ -615,13 +601,13 @@ export default function AddContent() {
                   />
                   <Pressable 
                     onPress={handleAddTag} 
-                    className="w-8 h-8 bg-[#8a2be2]/20 rounded-lg items-center justify-center mr-3 active:bg-[#8a2be2]/40"
+                    className="w-8 h-8 bg-primaryContainer/20 rounded-lg items-center justify-center mr-3 active:bg-primaryContainer/40"
                     hitSlop={6}
                   >
-                    <Plus size={18} color="#8A2BE2" />
+                    <Plus size={18} color={colors.primaryContainer} />
                   </Pressable>
                   <Pressable onPress={() => { setIsAddingTag(false); setNewTagText(''); }} hitSlop={6}>
-                    <X size={18} color="#a09ba8" />
+                    <X size={18} color={semantic.muted} />
                   </Pressable>
                 </View>
               ) : (
@@ -629,10 +615,10 @@ export default function AddContent() {
                   onPress={() => setIsAddingTag(true)} 
                   className="flex-row items-center mt-3 active:opacity-70"
                 >
-                  <View className="w-9 h-9 rounded-lg border border-dashed border-[#a09ba8]/40 items-center justify-center mr-3">
-                    <Plus size={20} color="#a09ba8" />
+                  <View className="w-9 h-9 rounded-lg border border-dashed border-muted/40 items-center justify-center mr-3">
+                    <Plus size={20} color={semantic.muted} />
                   </View>
-                  <Text className="text-base font-medium text-[#a09ba8]">
+                  <Text className="text-base font-medium text-muted">
                     Adicionar tag
                   </Text>
                 </Pressable>
@@ -646,14 +632,14 @@ export default function AddContent() {
         <View className="px-6 mt-12">
           {/* Section header */}
           <View className="flex-row items-center mb-6">
-            <View className="w-12 h-12 rounded-xl bg-[#1a1528] items-center justify-center border border-[#8a2be2]/20 mr-4">
-              <Paperclip size={22} color="#8A2BE2" />
+            <View className="w-12 h-12 rounded-xl bg-surfaceDim-conceito items-center justify-center border border-primaryContainer/20 mr-4">
+              <Paperclip size={22} color={colors.primaryContainer} />
             </View>
             <View className="flex-1">
               <Text className="text-lg font-semibold text-[#f8f8f8] mb-1">
                 Materiais
               </Text>
-              {/* <Text className="text-sm text-[#a09ba8]">
+              {/* <Text className="text-sm text-muted">
                 Adicione arquivos ou importe de outras ferramentas.
               </Text> */}
             </View>
@@ -662,47 +648,47 @@ export default function AddContent() {
           {/* Action buttons */}
           <View className="mb-8">
             {/* Select file (Botões maiores com p-5 e textos maiores) */}
-            <Pressable onPress={selecionarDocumento} className="w-full bg-[#1a1528] active:bg-[#201a30] border border-white/5 rounded-2xl p-5 flex-row items-center justify-between mb-4">
+            <Pressable onPress={selecionarDocumento} className="w-full bg-surfaceDim-conceito active:bg-[#201a30] border border-white/5 rounded-2xl p-5 flex-row items-center justify-between mb-4">
               <View className="flex-row items-center flex-1">
-                <View className="w-12 h-12 rounded-xl bg-[#110e1b] items-center justify-center border border-white/5 mr-4">
-                  <UploadCloud size={24} color="#8A2BE2" />
+                <View className="w-12 h-12 rounded-xl bg-surfaceContainerLowest items-center justify-center border border-white/5 mr-4">
+                  <UploadCloud size={24} color={colors.primaryContainer} />
                 </View>
                 <View className="flex-1">
                   <Text className="text-base font-semibold text-white mb-1">
                     Selecionar arquivo
                   </Text>
-                  <Text className="text-xs text-[#a09ba8]">
+                  <Text className="text-xs text-muted">
                     PDF, DOCX, TXT ou imagens
                   </Text>
                 </View>
               </View>
-              <ChevronRight size={22} color="#8A2BE2" />
+              <ChevronRight size={22} color={colors.primaryContainer} />
             </Pressable>
 
             {/* Link do YouTube */}
             <Pressable
               onPress={() => setIsYoutubeModalOpen(true)}
-              className="w-full bg-[#1a1528] active:bg-[#201a30] border border-white/5 rounded-2xl p-5 flex-row items-center justify-between mb-4"
+              className="w-full bg-surfaceDim-conceito active:bg-[#201a30] border border-white/5 rounded-2xl p-5 flex-row items-center justify-between mb-4"
             >
               <View className="flex-row items-center flex-1">
-                <View className="w-12 h-12 rounded-xl bg-[#110e1b] items-center justify-center border border-white/5 mr-4">
+                <View className="w-12 h-12 rounded-xl bg-surfaceContainerLowest items-center justify-center border border-white/5 mr-4">
                   <Link2 size={24} color="#ff4b4b" />
                 </View>
                 <View className="flex-1">
                   <Text className="text-base font-semibold text-white mb-1">
                     Colar link do YouTube
                   </Text>
-                  <Text className="text-xs text-[#a09ba8]">
+                  <Text className="text-xs text-muted">
                     Geramos a revisão a partir da transcrição do vídeo
                   </Text>
                 </View>
               </View>
-              <ChevronRight size={22} color="#8A2BE2" />
+              <ChevronRight size={22} color={colors.primaryContainer} />
             </Pressable>
 
             {/* Import Notion */}
             <Pressable
-              className="w-full bg-[#1a1528] active:bg-[#201a30] border border-white/5 rounded-2xl p-5 flex-row items-center justify-between"
+              className="w-full bg-surfaceDim-conceito active:bg-[#201a30] border border-white/5 rounded-2xl p-5 flex-row items-center justify-between"
               onPress={handleImportNotion}
               disabled={isConnectingNotion}
             >
@@ -718,22 +704,22 @@ export default function AddContent() {
                   <Text className="text-base font-semibold text-white mb-1">
                     Importar do Notion
                   </Text>
-                  <Text className="text-xs text-[#a09ba8]">
+                  <Text className="text-xs text-muted">
                     Selecione uma página compartilhada com a integração
                   </Text>
                 </View>
               </View>
               {isConnectingNotion ? (
-                <ActivityIndicator color="#8A2BE2" />
+                <ActivityIndicator color={colors.primaryContainer} />
               ) : (
-                <ChevronRight size={22} color="#8A2BE2" />
+                <ChevronRight size={22} color={colors.primaryContainer} />
               )}
             </Pressable>
           </View>
 
           {/* Added files list */}
           <View>
-            <Text className="text-sm font-medium text-[#a09ba8] mb-4">
+            <Text className="text-sm font-medium text-muted mb-4">
               Arquivos adicionados ({files.length})
             </Text>
 
@@ -741,7 +727,7 @@ export default function AddContent() {
               {files.map((file) => (
                 <View
                   key={file.id}
-                  className="bg-[#1a1528]/50 border border-white/5 rounded-2xl p-4 flex-row items-center justify-between mb-4"
+                  className="bg-surfaceDim-conceito/50 border border-white/5 rounded-2xl p-4 flex-row items-center justify-between mb-4"
                 >
                   <View className="flex-row items-center flex-1 mr-2">
                     <View
@@ -779,11 +765,11 @@ export default function AddContent() {
                         {file.name}
                       </Text>
                       <View className="flex-row items-center">
-                        <Text className="text-xs text-[#a09ba8]">
+                        <Text className="text-xs text-muted">
                           {file.size}
                         </Text>
-                        <View className="w-1.5 h-1.5 rounded-full bg-[#a09ba8]/50 mx-2" />
-                        <Text className="text-xs text-[#a09ba8]">
+                        <View className="w-1.5 h-1.5 rounded-full bg-muted/50 mx-2" />
+                        <Text className="text-xs text-muted">
                           {file.pages}
                         </Text>
                       </View>
@@ -794,7 +780,7 @@ export default function AddContent() {
                     className="w-10 h-10 rounded-full items-center justify-center active:bg-white/10"
                     hitSlop={6}
                   >
-                    <X size={20} color="#a09ba8" />
+                    <X size={20} color={semantic.muted} />
                   </Pressable>
                 </View>
               ))}
@@ -813,10 +799,10 @@ export default function AddContent() {
             onPress={() => setIsYoutubeModalOpen(false)}
           >
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-              <Pressable className="bg-[#1a1528] rounded-t-3xl overflow-hidden" onPress={(e) => e.stopPropagation()}>
+              <Pressable className="bg-surfaceDim-conceito rounded-t-3xl overflow-hidden" onPress={(e) => e.stopPropagation()}>
                 <View className="px-6 pt-5 pb-4 border-b border-white/10">
                   <Text className="text-white text-base font-semibold">Colar link do YouTube</Text>
-                  <Text className="text-xs text-[#a09ba8] mt-1">
+                  <Text className="text-xs text-muted mt-1">
                     Cole a URL de um vídeo com legendas disponíveis.
                   </Text>
                 </View>
@@ -825,11 +811,11 @@ export default function AddContent() {
                     value={youtubeInputText}
                     onChangeText={setYoutubeInputText}
                     placeholder="https://www.youtube.com/watch?v=..."
-                    placeholderTextColor="#a09ba8"
+                    placeholderTextColor={semantic.muted}
                     autoCapitalize="none"
                     autoCorrect={false}
                     keyboardType="url"
-                    className="text-white text-base bg-[#110e1b] border border-white/10 rounded-xl px-4 py-3 mb-5"
+                    className="text-white text-base bg-surfaceContainerLowest border border-white/10 rounded-xl px-4 py-3 mb-5"
                   />
                   <Pressable onPress={handleAddYoutubeLink} className="active:opacity-90">
                     <LinearGradient
@@ -860,21 +846,21 @@ export default function AddContent() {
             className="flex-1 bg-black/60 justify-end"
             onPress={() => setIsNotionPickerOpen(false)}
           >
-            <View className="bg-[#1a1528] rounded-t-3xl overflow-hidden" onStartShouldSetResponder={() => true}>
+            <View className="bg-surfaceDim-conceito rounded-t-3xl overflow-hidden" onStartShouldSetResponder={() => true}>
               <View className="px-6 pt-5 pb-4 border-b border-white/10">
                 <Text className="text-white text-base font-semibold">Selecione uma página</Text>
-                <Text className="text-xs text-[#a09ba8] mt-1">
+                <Text className="text-xs text-muted mt-1">
                   Só aparecem páginas compartilhadas com a integração Elix no Notion.
                 </Text>
               </View>
 
               {isLoadingNotionPages ? (
                 <View className="items-center justify-center py-10">
-                  <ActivityIndicator color="#8A2BE2" />
+                  <ActivityIndicator color={colors.primaryContainer} />
                 </View>
               ) : notionPages.length === 0 ? (
                 <View className="items-center px-6 py-10">
-                  <Text className="text-sm text-[#a09ba8] text-center leading-5">
+                  <Text className="text-sm text-muted text-center leading-5">
                     Nenhuma página compartilhada ainda. Abra o Notion, entre na página desejada e
                     compartilhe com a integração "Elix" pelo menu de conexões.
                   </Text>
@@ -906,11 +892,11 @@ export default function AddContent() {
                   style={{ backgroundColor: 'rgba(138,43,226,0.12)' }}
                 >
                   {isConnectingNotion ? (
-                    <ActivityIndicator color="#8A2BE2" />
+                    <ActivityIndicator color={colors.primaryContainer} />
                   ) : (
                     <>
-                      <Plus size={16} color="#8A2BE2" />
-                      <Text className="text-[#8A2BE2] text-sm font-semibold ml-2">
+                      <Plus size={16} color={colors.primaryContainer} />
+                      <Text className="text-primaryContainer text-sm font-semibold ml-2">
                         Compartilhar mais páginas
                       </Text>
                     </>
@@ -966,7 +952,7 @@ export default function AddContent() {
           </LinearGradient>
         </TouchableOpacity>
         {isGenerating && (
-          <Text className="text-center text-[#a09ba8] text-xs mt-3">
+          <Text className="text-center text-muted text-xs mt-3">
             Isso pode levar alguns minutos — a IA está lendo seu material. Não feche o app.
           </Text>
         )}
@@ -1050,12 +1036,12 @@ export default function AddContent() {
     //             <View
     //               className='rounded-2xl border p-4 min-h-8'
     //               style={[
-    //                 { borderColor: '#4c4354' },
+    //                 { borderColor: colors.outlineVariant },
     //                 isFocused && { borderColor: C.primaryContainer }
     //               ]}
     //             >
     //               <TextInput
-    //                 className="text-base text-[#eadfee] min-h-[100px]"
+    //                 className="text-base text-onSurface min-h-[100px]"
     //                 placeholder="Ex: revisar hipotálamo, neuro-hipófise e glândula tireoide"
     //                 placeholderTextColor={C.onSurfaceVariant + '80'}
     //                 multiline

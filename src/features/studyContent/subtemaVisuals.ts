@@ -9,17 +9,19 @@ import {
   TrendingUp,
 } from "lucide-react-native";
 import { Conceito, MaterialTipo, StatusConceito, SubTema } from "@/src/types/studyContent";
+import { colors, semantic, surfaceDim } from "@/src/theme/colors";
 
 // Tokens do design system "The Cognitive Sanctuary" — compartilhados entre a
 // tela da disciplina e a tela de material, pra manter as duas com a mesma
-// linguagem visual.
-export const PRIMARY = "#8a2be2";
-export const PRIMARY_LIGHT = "#dcb8ff";
-export const ON_PRIMARY_CONTAINER = "#eed9ff";
-export const SURFACE_DIM = "#080510";
-export const SURFACE_SUBTEMA = "#120e1c"; // fundo do container de cada subtema/material
-export const SURFACE_CONCEITO = "#1a1528"; // fundo do card de conceito, um tom acima
-export const MUTED = "#a09ba8";
+// linguagem visual. Valores vêm de src/theme/colors.ts (fonte única da
+// paleta); os nomes daqui continuam os mesmos pra não quebrar quem já importa.
+export const PRIMARY = colors.primaryContainer;
+export const PRIMARY_LIGHT = colors.primary;
+export const ON_PRIMARY_CONTAINER = colors.onPrimaryContainer;
+export const SURFACE_DIM = surfaceDim.base;
+export const SURFACE_SUBTEMA = surfaceDim.subtema; // fundo do container de cada subtema/material
+export const SURFACE_CONCEITO = surfaceDim.conceito; // fundo do card de conceito, um tom acima
+export const MUTED = semantic.muted;
 
 // Quantos subtemas ficam sempre visíveis (sem precisar tocar em nada).
 export const MAX_SUBTEMAS_VISIVEIS = 4;
@@ -27,10 +29,10 @@ export const MAX_SUBTEMAS_VISIVEIS = 4;
 // Cores de status por conceito. Carregam significado próprio (nível de
 // domínio), então ficam fora da paleta roxa do tema.
 export const STATUS_CONCEITO_COLOR: Record<StatusConceito, string> = {
-  novo: "#a09ba8",
-  em_reforco: "#f0a030",
-  consolidando: "#60a5fa",
-  dominado: "#22c55e",
+  novo: semantic.muted,
+  em_reforco: semantic.warning,
+  consolidando: semantic.info,
+  dominado: semantic.success,
 };
 
 // Ícone por status — reforça a leitura de "conquista" (crown pro dominado,
@@ -55,9 +57,9 @@ export const SUBTEMA_STATUS_LABEL: Record<SubtemaProgressStatus, string> = {
 };
 
 export const SUBTEMA_STATUS_COLOR: Record<SubtemaProgressStatus, string> = {
-  dominado: "#22c55e",
-  em_reforco: "#f0a030",
-  iniciando: "#60a5fa",
+  dominado: semantic.success,
+  em_reforco: semantic.warning,
+  iniciando: semantic.info,
 };
 
 export const SUBTEMA_STATUS_ICON: Record<SubtemaProgressStatus, typeof CircleDot> = {
@@ -125,8 +127,8 @@ export type RevisaoUrgencia = "atrasado" | "hoje" | null;
 // topo, badge do material, tag do subtema, tag do conceito) pra "vencido"
 // significar sempre a mesma coisa em vez de cada lugar inventar seu próprio
 // laranja/vermelho.
-export const COR_ATRASADO = "#ff6b6b";
-export const COR_REVISA_HOJE = "#60a5fa";
+export const COR_ATRASADO = semantic.danger;
+export const COR_REVISA_HOJE = semantic.info;
 
 export function revisaoUrgencia(conceito: Pick<Conceito, "status" | "proxima_revisao">): RevisaoUrgencia {
   if (conceito.status === "dominado" || conceito.status === "novo") return null;
@@ -155,20 +157,20 @@ export function legendaRevisao(conceito: Pick<Conceito, "proxima_revisao">): str
   return `revisa em ${faltam} ${faltam === 1 ? "dia" : "dias"}`;
 }
 
-// Nível exibido pro aluno, numa escala 0-3: 0 = nunca revisado (status
-// "novo"), 3 = dominado. `nivel_atual` (1-3) do banco já basta pros estados
-// intermediários — o problema era só o "novo" mostrar "Nv.1" com 1 pip
-// aceso, como se já tivesse algum progresso, quando na verdade o aluno nunca
-// tocou nesse conceito ainda.
-export function nivelExibicao(conceito: Pick<Conceito, "status" | "nivel_atual">): 0 | 1 | 2 | 3 {
+// Nível exibido pro aluno, numa escala 0-4: 0 = nunca revisado (status
+// "novo"), 4 = dominado (passou pela dissertativa). `nivel_atual` (1-4) do
+// banco já basta pros estados intermediários — o problema era só o "novo"
+// mostrar "Nv.1" com 1 pip aceso, como se já tivesse algum progresso, quando
+// na verdade o aluno nunca tocou nesse conceito ainda.
+export function nivelExibicao(conceito: Pick<Conceito, "status" | "nivel_atual">): 0 | 1 | 2 | 3 | 4 {
   if (conceito.status === "novo") return 0;
-  if (conceito.status === "dominado") return 3;
+  if (conceito.status === "dominado") return 4;
   return conceito.nivel_atual;
 }
 
 // Mesma escala de domínio por nível usada no backend (studyContent.service.ts)
 // pra derivar o % de domínio sem esperar o servidor recalcular.
-const NIVEL_MASTERY: Record<number, number> = { 1: 0, 2: 33, 3: 67 };
+const NIVEL_MASTERY: Record<number, number> = { 1: 0, 2: 25, 3: 50, 4: 75 };
 
 export function conceitoMastery(conceito: Pick<Conceito, "status" | "nivel_atual">): number {
   if (conceito.status === "dominado") return 100;

@@ -21,6 +21,7 @@ import {
   legendaRevisao,
   revisaoUrgencia,
 } from "./subtemaVisuals";
+import { semantic } from "@/src/theme/colors";
 
 // Nó da trilha: anel de progresso (SVG) preenchido conforme o domínio do
 // conceito (0/33/67/100%, ver conceitoMastery) — o mesmo círculo que, cheio,
@@ -83,7 +84,7 @@ function NoConceito({
             borderColor: `${cor}33`,
           }}
         >
-          {destacado ? <Star size={13} color="#f0a030" fill="#f0a030" /> : <Icon size={15} color={cor} />}
+          {destacado ? <Star size={13} color={semantic.warning} fill={semantic.warning} /> : <Icon size={15} color={cor} />}
         </View>
       </View>
     </View>
@@ -225,8 +226,8 @@ function ConceitoDetalheSheet({
                 className="flex-row items-center rounded-2xl px-3 py-2.5 mb-4"
                 style={{ backgroundColor: "rgba(240,160,48,0.1)", borderWidth: 1, borderColor: "rgba(240,160,48,0.25)" }}
               >
-                <Star size={14} color="#f0a030" fill="#f0a030" />
-                <Text className="text-xs ml-2 flex-1" style={{ color: "#f0a030" }}>
+                <Star size={14} color={semantic.warning} fill={semantic.warning} />
+                <Text className="text-xs ml-2 flex-1" style={{ color: semantic.warning }}>
                   Marcado como foco — a IA identificou que este conceito precisa de mais atenção.
                 </Text>
               </View>
@@ -257,34 +258,55 @@ function ConceitoDetalheSheet({
 
                     <Text className="text-white text-sm font-medium mb-3">{pergunta.pergunta}</Text>
 
-                    <View style={{ gap: 6 }}>
-                      {(["A", "B", "C", "D"] as const).map((letra) => {
-                        const correta = letra === pergunta.resposta;
-                        return (
-                          <View
-                            key={letra}
-                            className="flex-row items-center rounded-xl px-3 py-2"
-                            style={{
-                              backgroundColor: correta ? "rgba(34,197,94,0.12)" : "rgba(255,255,255,0.03)",
-                              borderWidth: 1,
-                              borderColor: correta ? "rgba(34,197,94,0.35)" : "rgba(255,255,255,0.05)",
-                            }}
-                          >
-                            {correta ? (
-                              <Check size={13} color="#22c55e" />
-                            ) : (
-                              <View style={{ width: 13, height: 13 }} />
-                            )}
-                            <Text
-                              className="text-xs ml-2 flex-1"
-                              style={{ color: correta ? "#22c55e" : "rgba(255,255,255,0.7)" }}
+                    {pergunta.alternativas ? (
+                      <View style={{ gap: 6 }}>
+                        {(["A", "B", "C", "D"] as const).map((letra) => {
+                          const alternativas = pergunta.alternativas!;
+                          const correta = letra === pergunta.resposta;
+                          return (
+                            <View
+                              key={letra}
+                              className="flex-row items-center rounded-xl px-3 py-2"
+                              style={{
+                                backgroundColor: correta ? "rgba(34,197,94,0.12)" : "rgba(255,255,255,0.03)",
+                                borderWidth: 1,
+                                borderColor: correta ? "rgba(34,197,94,0.35)" : "rgba(255,255,255,0.05)",
+                              }}
                             >
-                              {pergunta.alternativas[letra]}
-                            </Text>
-                          </View>
-                        );
-                      })}
-                    </View>
+                              {correta ? (
+                                <Check size={13} color={semantic.success} />
+                              ) : (
+                                <View style={{ width: 13, height: 13 }} />
+                              )}
+                              <Text
+                                className="text-xs ml-2 flex-1"
+                                style={{ color: correta ? semantic.success : "rgba(255,255,255,0.7)" }}
+                              >
+                                {alternativas[letra]}
+                              </Text>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    ) : (
+                      // Nível 4 (dissertativa): sem alternativas — mostra a
+                      // resposta_modelo, o gabarito em texto livre pro aluno
+                      // se autoavaliar (ver quiz/index.tsx).
+                      <View
+                        className="rounded-xl px-3 py-2.5"
+                        style={{ backgroundColor: "rgba(34,197,94,0.1)", borderWidth: 1, borderColor: "rgba(34,197,94,0.3)" }}
+                      >
+                        <Text
+                          className="text-[10px] font-bold uppercase tracking-wider mb-1"
+                          style={{ color: semantic.success }}
+                        >
+                          Resposta modelo
+                        </Text>
+                        <Text className="text-xs" style={{ color: "rgba(255,255,255,0.85)", lineHeight: 18 }}>
+                          {pergunta.resposta_modelo}
+                        </Text>
+                      </View>
+                    )}
 
                     <Text className="text-xs mt-3" style={{ color: MUTED, lineHeight: 17 }}>
                       {pergunta.explicacao}

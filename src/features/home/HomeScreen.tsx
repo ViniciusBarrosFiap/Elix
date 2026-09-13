@@ -97,7 +97,7 @@ export default function HomeScreen() {
   );
 
   return userData?.fezUpload ? (
-    <View className="flex-1 bg-[#080510]">
+    <View className="flex-1 bg-surfaceDim">
     <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
         <Animated.View
           style={{
@@ -170,7 +170,7 @@ export default function HomeScreen() {
   :
   (
 
-  <View className="flex-1 bg-[#080510]">
+  <View className="flex-1 bg-surfaceDim">
     <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
     <Animated.View
       style={{

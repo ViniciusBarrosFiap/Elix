@@ -22,16 +22,17 @@ import { QuizQuestionsService } from "@/src/services/quiz/quiz.service";
 import { useUserDataStore } from "@/src/store/userDataStore";
 import { useStudyContentStore } from "@/src/store/studyContentStore";
 import { useQuizQuestionsStore } from "@/src/store/quizQuestionsStore";
+import { colors, semantic, surfaceDim } from "@/src/theme/colors";
 
 // Mesma paleta "The Cognitive Sanctuary" já usada em studyContents/[id]/index.tsx —
 // reaproveitada aqui pra essa tela ler como parte do mesmo app.
-const PRIMARY = "#8a2be2";
-const PRIMARY_LIGHT = "#dcb8ff";
-const ON_PRIMARY_CONTAINER = "#eed9ff";
-const SURFACE_DIM = "#080510";
-const SURFACE_CARD = "#120e1c";
-const MUTED = "#a09ba8";
-const ERROR = "#ff6b6b";
+const PRIMARY = colors.primaryContainer;
+const PRIMARY_LIGHT = colors.primary;
+const ON_PRIMARY_CONTAINER = colors.onPrimaryContainer;
+const SURFACE_DIM = surfaceDim.base;
+const SURFACE_CARD = surfaceDim.subtema;
+const MUTED = semantic.muted;
+const ERROR = semantic.danger;
 
 function StatCard({ icon, value, label, color }: { icon: React.ReactNode; value: string; label: string; color: string }) {
   return (
@@ -201,10 +202,10 @@ export default function ProfileScreen() {
         {/* Stats */}
         <View className="flex-row" style={{ gap: 12, marginBottom: 28 }}>
           <StatCard
-            icon={<Flame size={18} color="#f0a030" />}
+            icon={<Flame size={18} color={semantic.warning} />}
             value={String(userData?.streak ?? 0)}
             label="Ofensiva"
-            color="#f0a030"
+            color={semantic.warning}
           />
           <StatCard
             icon={<Droplet size={18} color={PRIMARY_LIGHT} />}
@@ -213,10 +214,10 @@ export default function ProfileScreen() {
             color={PRIMARY_LIGHT}
           />
           <StatCard
-            icon={<Brain size={18} color="#60a5fa" />}
+            icon={<Brain size={18} color={semantic.info} />}
             value={`${dominioMedio}%`}
             label="Domínio médio"
-            color="#60a5fa"
+            color={semantic.info}
           />
         </View>
 

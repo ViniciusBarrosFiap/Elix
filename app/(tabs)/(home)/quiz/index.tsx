@@ -1,5 +1,5 @@
 import { Feather } from '@expo/vector-icons';
-import { CheckCircle2, Zap } from 'lucide-react-native';
+import { CheckCircle2, XCircle, Zap } from 'lucide-react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import '@/global.css'
@@ -7,6 +7,7 @@ import {
     StatusBar,
     StyleSheet,
     Text,
+    TextInput,
     TouchableOpacity,
     View,
     Animated,
@@ -19,34 +20,21 @@ import { QuizQuestionsService } from '@/src/services/quiz/quiz.service';
 import { useQuizQuestionsStore } from '@/src/store/quizQuestionsStore';
 import { useQuizSessionStore } from '@/src/store/quizSessionStore';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BottomSheetBackdrop, BottomSheetModal, BottomSheetView } from '@gorhom/bottom-sheet';
+import { BottomSheetBackdrop, BottomSheetModal, BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { BlurView } from 'expo-blur';
 import ElixirFlaskRN, { ElixirFlaskHandle } from '@/src/components/ElixirFlaskRN';
+import { colors, semantic } from '@/src/theme/colors';
 
-// ─── Design Tokens 
-const C = {
-  surface:                '#16111b',
-  surfaceContainerLow:    '#1f1924',
-  surfaceContainer:       '#231d28',
-  surfaceContainerHigh:   '#2e2832',
-  primaryContainer:       '#8a2be2',
-  onPrimaryContainer:     '#eed9ff',
-  primary:                '#dcb8ff',
-  onSurface:              '#eadfee',
-  onSurfaceVariant:       '#cfc2d7',
-  outlineVariant:         '#4c4354',
-  secondaryContainer:     '#5d3587',
-  onSecondaryContainer:   '#d2a6ff',
-  correct:                '#00c896',
-};
+// ─── Design Tokens — paleta compartilhada em src/theme/colors.ts.
+const C = colors;
 
 // Espelha calcularElixir() do backend (server/src/services/quiz/submitAnswer.ts)
 // pra dar feedback local imediato sem depender da resposta da rede — o
 // registro que vale de verdade continua sendo o do servidor.
-const ELIXIR_POR_NIVEL: Record<1 | 2 | 3, number> = { 1: 30, 2: 50, 3: 100 };
+const ELIXIR_POR_NIVEL: Record<1 | 2 | 3 | 4, number> = { 1: 30, 2: 50, 3: 100, 4: 150 };
 const ELIXIR_ERRO = 10;
 
-function calcularElixir(nivel: 1 | 2 | 3, acertou: boolean): number {
+function calcularElixir(nivel: 1 | 2 | 3 | 4, acertou: boolean): number {
   return acertou ? ELIXIR_POR_NIVEL[nivel] : ELIXIR_ERRO;
 }
 
@@ -73,10 +61,13 @@ function nivelConfiancaLabel(nivel: number): string {
   return 'Muita confiança';
 }
 
+// Tons pastel (mesma faixa de luminosidade da paleta roxa do app, em vez das
+// cores puras semáforo) pra combinar com o fundo escuro violeta em vez de
+// destoar como um vermelho/amarelo/verde genérico de UI.
 function nivelConfiancaCor(nivel: number): string {
-  if (nivel < 0.34) return '#ff6b6b';
-  if (nivel < 0.67) return '#f0a030';
-  return '#00c896';
+  if (nivel < 0.34) return '#f28fa3'; // rosa-vermelho pastel
+  if (nivel < 0.67) return '#f0c479'; // dourado pastel
+  return '#7fe8c9'; // verde-menta pastel
 }
 
 // Seta em vaivém indicando a direção do arrasto — substitui o ícone estático
@@ -279,8 +270,9 @@ export default function QuizScreen() {
   }, [macroTemaId]);
 
    const bottomSheetModalRef = useRef<BottomSheetModal>(null);
-    // 2. Define as alturas que o Bottom Sheet pode assumir (ex: 25% e 50% da tela)
-    const snapPoints = useMemo(() => ["60%"], ["80%"]);
+    // Dois pontos de altura: abre num tamanho compacto e o aluno pode
+    // arrastar pra cima até 90% se a justificativa for longa e não couber.
+    const snapPoints = useMemo(() => ["55%", "90%"], []);
 
   // Cooldown que trava o fechamento da justificativa quando ela abre sozinha
   // por causa de um erro — força o aluno a de fato ler antes de seguir.
@@ -330,9 +322,9 @@ export default function QuizScreen() {
     (props: any) => (
       <BlurView
         // O props.style é injetado pela biblioteca para posicionar o fundo
-        style={[props.style, { borderRadius: 24, overflow: 'hidden' }]}
-        tint="default"
-        intensity={95} // Ajuste a força do vidro
+        style={[props.style, { borderRadius: 24, overflow: 'hidden', backgroundColor: 'rgba(22,17,27,0.55)' }]}
+        tint="dark" // fixo (não "default") pra não depender do tema do sistema — a tela do quiz é sempre escura
+        intensity={40}
       />
     ),
     []
@@ -404,10 +396,20 @@ export default function QuizScreen() {
 
   const [selected, setSelected] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState(false);
+  // Setado junto com `confirmed`, nos dois fluxos (múltipla escolha e
+  // dissertativa) — o bottom sheet de justificativa lê daqui em vez de
+  // recalcular (pra dissertativa não dá pra comparar `selected` com
+  // `id_gabarito`, já que nenhum dos dois existe nesse nível).
+  const [acertou, setAcertou] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   // Espelha o "pronto pra confirmar" do ConfidenceSlider — só existe pra
   // trocar o texto da dica acima do slider (ver onReadyChange).
   const [prontoParaConfirmar, setProntoParaConfirmar] = useState(false);
+
+  // ─── Nível 4 (dissertativa) — sem alternativas: o aluno escreve a resposta,
+  // revela a resposta_modelo gerada pela IA e se autoavalia contra ela.
+  const [respostaTexto, setRespostaTexto] = useState('');
+  const [respostaModeloRevelada, setRespostaModeloRevelada] = useState(false);
 
   // ─── Animação do Líquido ───
   const liquidAnim = useRef(new Animated.Value(0)).current;
@@ -427,6 +429,9 @@ export default function QuizScreen() {
   const currentQuestion = quizQuestions[currentQuestionIndex];
   const isLastQuestion = currentQuestionIndex === quizQuestions.length - 1;
   const isFirstQuestion = currentQuestionIndex === 0;
+  // Nível 4 (dissertativa) não vem com alternativas — é o jeito mais simples
+  // de diferenciar sem depender só do número do nível.
+  const isDissertativa = !!currentQuestion && currentQuestion.opcoes.length === 0;
 
   // Fração de perguntas concluídas HOJE (acertos+erros da sessão do dia
   // inteiro / totalSessao capturado em garantirSessao) — não mais
@@ -446,7 +451,10 @@ export default function QuizScreen() {
     setCurrentQuestionIndex(index);
     setSelected(null);
     setConfirmed(false);
+    setAcertou(false);
     setProntoParaConfirmar(false);
+    setRespostaTexto('');
+    setRespostaModeloRevelada(false);
     // Sem isso, trocar de pergunta mantinha a posição de scroll da pergunta
     // anterior — a nova já nascia rolada (e o header, escondido) se o aluno
     // tivesse descido antes de responder.
@@ -466,12 +474,13 @@ export default function QuizScreen() {
     confiancasRef.current.push(nivelConfianca);
     setConfirmed(true);
 
-    const acertou = selected === currentQuestion.id_gabarito;
-    const ganho = calcularElixir(currentQuestion.nivel, acertou);
-    registrarResposta(acertou, ganho);
+    const acertouAgora = selected === currentQuestion.id_gabarito;
+    setAcertou(acertouAgora);
+    const ganho = calcularElixir(currentQuestion.nivel, acertouAgora);
+    registrarResposta(acertouAgora, ganho);
     flaskRef.current?.gain(ganho, `+${ganho} XP`);
 
-    if (!acertou) {
+    if (!acertouAgora) {
       // Se a resposta selecionada for diferente do gabarito (resposta errada),
       // abre o Bottom Sheet automaticamente e trava o fechamento por alguns
       // segundos — sem isso, dava pra bater o dedo e sair sem ler nada.
@@ -483,6 +492,32 @@ export default function QuizScreen() {
     // revisão, elixir). Não bloqueia a UI — o feedback já é local/imediato;
     // se a chamada falhar, só o progresso persistido fica desatualizado.
     QuizQuestionsService.submitAnswer(currentQuestion.id, selected).catch((err) => {
+      console.error("Falha ao registrar resposta:", err);
+    });
+  }
+
+  // Nível 4 (dissertativa): sem gabarito A-D pra comparar — o próprio aluno
+  // reporta se acertou depois de comparar sua resposta com a resposta_modelo
+  // revelada (ver bloco de UI mais abaixo).
+  function confirmarAutoavaliacao(acertouAgora: boolean) {
+    if (confirmed) return;
+
+    setConfirmed(true);
+    setAcertou(acertouAgora);
+    const ganho = calcularElixir(currentQuestion.nivel, acertouAgora);
+    registrarResposta(acertouAgora, ganho);
+    flaskRef.current?.gain(ganho, `+${ganho} XP`);
+
+    if (!acertouAgora) {
+      bottomSheetModalRef.current?.present();
+      iniciarCooldownJustificativa();
+    }
+
+    QuizQuestionsService.submitAnswer(
+      currentQuestion.id,
+      undefined,
+      acertouAgora ? 'acertou' : 'errou'
+    ).catch((err) => {
       console.error("Falha ao registrar resposta:", err);
     });
   }
@@ -521,7 +556,7 @@ export default function QuizScreen() {
   function getOptionTextStyle(id: string) {
     if (!confirmed) return styles.optionText;
     if (id === currentQuestion.id_gabarito) return [styles.optionText, { color: C.onPrimaryContainer, fontFamily: 'Manrope_700Bold' }];
-    if (id === selected && selected !== currentQuestion.id_gabarito) return [styles.optionText, { color: '#ff6b6b' }];
+    if (id === selected && selected !== currentQuestion.id_gabarito) return [styles.optionText, { color: semantic.danger }];
     return styles.optionText;
   }
 
@@ -544,7 +579,7 @@ export default function QuizScreen() {
             }}
           />
           <LinearGradient
-            colors={['#8a2be2', '#5d3587']}
+            colors={[colors.primaryContainer, colors.secondaryContainer]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={{
@@ -553,7 +588,7 @@ export default function QuizScreen() {
               borderRadius: 48,
               alignItems: 'center',
               justifyContent: 'center',
-              shadowColor: '#8a2be2',
+              shadowColor: colors.primaryContainer,
               shadowOffset: { width: 0, height: 8 },
               shadowOpacity: 0.5,
               shadowRadius: 20,
@@ -586,12 +621,12 @@ export default function QuizScreen() {
 
         <Pressable onPress={() => router.back()} className="active:opacity-90 w-full" style={{ maxWidth: 280 }}>
           <LinearGradient
-            colors={['#8a2be2', '#5d3587']}
+            colors={[colors.primaryContainer, colors.secondaryContainer]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={{
               borderRadius: 999,
-              shadowColor: '#8a2be2',
+              shadowColor: colors.primaryContainer,
               shadowOffset: { width: 0, height: 6 },
               shadowOpacity: 0.4,
               shadowRadius: 16,
@@ -640,17 +675,50 @@ export default function QuizScreen() {
 
             {currentQuestion.ja_errou && (
               <View style={styles.reforcoChip}>
-                <Feather name="alert-circle" size={10} color="#f0a030" />
+                <Feather name="alert-circle" size={10} color={semantic.warning} />
                 <Text style={styles.reforcoChipText}>REFORÇO</Text>
               </View>
             )}
           </View>
 
           <Text style={styles.question}>{currentQuestion.titulo}</Text>
-          {currentQuestion.ja_errou && (
-            <Text style={styles.hint}>{currentQuestion.dica}</Text>
-          )}
 
+          {isDissertativa ? (
+            <View style={{ gap: 16 }}>
+              <TextInput
+                value={respostaTexto}
+                onChangeText={setRespostaTexto}
+                editable={!confirmed}
+                multiline
+                textAlignVertical="top"
+                placeholder="Escreva sua resposta com suas próprias palavras..."
+                placeholderTextColor={C.onSurfaceVariant}
+                style={styles.dissertativaInput}
+              />
+
+              {respostaModeloRevelada && (
+                <View style={styles.respostaModeloCard}>
+                  <View className="flex-row items-center mb-2" style={{ gap: 7 }}>
+                    <CheckCircle2 size={15} color={C.correct} />
+                    <Text
+                      style={{
+                        fontFamily: 'Manrope_700Bold',
+                        fontSize: 12,
+                        letterSpacing: 0.4,
+                        color: C.onSurfaceVariant,
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      Resposta modelo
+                    </Text>
+                  </View>
+                  <Text style={{ fontFamily: 'Manrope_500Medium', fontSize: 15, lineHeight: 22, color: C.onSurface }}>
+                    {currentQuestion.resposta_modelo}
+                  </Text>
+                </View>
+              )}
+            </View>
+          ) : (
           <View style={styles.optionsList}>
             {currentQuestion.opcoes.map((opt) => {
               const isCorrectOpt = opt.id === currentQuestion.id_gabarito;
@@ -695,7 +763,7 @@ export default function QuizScreen() {
                     </View>
                   )}
                   {confirmed && opt.id === selected && !isCorrectOpt && (
-                    <View style={[styles.radioOuter, { borderColor: '#ff6b6b', backgroundColor: '#ff6b6b' }]}>
+                    <View style={[styles.radioOuter, { borderColor: semantic.danger, backgroundColor: semantic.danger }]}>
                       <Feather name="x" size={12} color="#fff" />
                     </View>
                   )}
@@ -706,6 +774,7 @@ export default function QuizScreen() {
               </TouchableOpacity>
             )})}
           </View>
+          )}
         </Animated.ScrollView>
 
         {/* Header flutua por cima do scroll, sem fundo próprio — o
@@ -787,6 +856,36 @@ export default function QuizScreen() {
         )}
         <View style={{ flexDirection: 'row', gap: 12 }}>
         {!confirmed ? (
+          isDissertativa ? (
+            !respostaModeloRevelada ? (
+              <TouchableOpacity
+                style={[styles.nextButton, { flex: 1 }]}
+                activeOpacity={0.85}
+                onPress={() => setRespostaModeloRevelada(true)}
+              >
+                <Text style={styles.nextButtonText}>Ver resposta modelo</Text>
+              </TouchableOpacity>
+            ) : (
+              <>
+                <TouchableOpacity
+                  style={[styles.autoavaliacaoButton, { flex: 1, borderColor: semantic.danger }]}
+                  activeOpacity={0.85}
+                  onPress={() => confirmarAutoavaliacao(false)}
+                >
+                  <XCircle size={18} color={semantic.danger} />
+                  <Text style={[styles.autoavaliacaoButtonText, { color: semantic.danger }]}>Não acertei</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.autoavaliacaoButton, { flex: 1, backgroundColor: C.correct, borderColor: C.correct }]}
+                  activeOpacity={0.85}
+                  onPress={() => confirmarAutoavaliacao(true)}
+                >
+                  <CheckCircle2 size={18} color={C.surface} />
+                  <Text style={[styles.autoavaliacaoButtonText, { color: C.surface }]}>Acertei</Text>
+                </TouchableOpacity>
+              </>
+            )
+          ) : (
           // Escondido até selecionar uma alternativa — antes aparecia
           // desabilitado (cinza, "Selecione uma opção"), mas ocupando espaço
           // e chamando atenção pra uma ação que ainda não faz sentido.
@@ -798,6 +897,7 @@ export default function QuizScreen() {
               onReadyChange={setProntoParaConfirmar}
             />
           )
+          )
         ) : (
           <TouchableOpacity
             style={[styles.nextButton, { flex: 1 }]}
@@ -805,7 +905,7 @@ export default function QuizScreen() {
             onPress={handleNext}
           >
             <Text style={styles.nextButtonText}>
-              {isLastQuestion ? 'Finalizar' : 'Próxima →'}
+              {isLastQuestion ? 'Finalizar' : 'Próxima '}
             </Text>
           </TouchableOpacity>
         )}
@@ -829,61 +929,90 @@ export default function QuizScreen() {
   enablePanDownToClose={!cooldownAtivo} // trava o swipe-to-close durante o cooldown
   backgroundComponent={renderBackground}
   backdropComponent={renderBackdrop}
-  handleIndicatorStyle={{ backgroundColor: '#a855f7', width: 40, opacity: cooldownAtivo ? 0.3 : 1 }}
+  handleIndicatorStyle={{ backgroundColor: C.outlineVariant, width: 36, opacity: cooldownAtivo ? 0.3 : 1 }}
 >
-  <BottomSheetView style={{ flex: 1, paddingHorizontal: 24, paddingTop: 8, paddingBottom: 24 }}>
-    {/* Cabeçalho com ícone + título */}
-    <View className="flex-row items-center justify-between mb-4">
-      <View className="flex-row items-center">
-        <View className="w-8 h-8 rounded-full bg-[#a855f7]/20 justify-center items-center mr-3">
-          <Text className="text-base">💡</Text>
-        </View>
+  <BottomSheetScrollView
+    style={{ flex: 1 }}
+    contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 4, paddingBottom: 32 }}
+    showsVerticalScrollIndicator={false}
+  >
+    {/* Resposta correta em destaque — quando o aluno acertou, o texto da
+        opção seria só repetir a própria resposta dele, então mostra apenas
+        o rótulo "Resposta correta" maior, sem duplicar o conteúdo. Usa o
+        estado `acertou` (setado junto com `confirmed`) em vez de comparar
+        `selected`/`id_gabarito` direto — no nível 4 (dissertativa) nenhum
+        dos dois existe, então essa comparação sempre bateria errado. */}
+    {acertou ? (
+      <View className="flex-row items-center mb-5" style={{ gap: 10 }}>
+        <CheckCircle2 size={22} color={C.correct} />
         <Text
-          style={{ fontFamily: 'Manrope_700Bold' }}
-          className="text-lg text-[#a855f7]"
+          style={{ fontFamily: 'Manrope_700Bold', fontSize: 20, color: C.onSurface }}
         >
-          Justificativa
+          Resposta correta
         </Text>
       </View>
+    ) : (
+      <>
+        <View className="flex-row items-center justify-between mb-4">
+          <View className="flex-row items-center" style={{ gap: 10 }}>
+            <XCircle size={22} color={semantic.danger} />
+            <Text
+              style={{ fontFamily: 'Manrope_700Bold', fontSize: 20, color: C.onSurface }}
+            >
+              Resposta incorreta
+            </Text>
+          </View>
 
-      {cooldownAtivo && (
+          {cooldownAtivo && (
+            <View
+              className="flex-row items-center rounded-full px-2.5 py-1"
+              style={{ backgroundColor: 'rgba(240,160,48,0.14)', gap: 4 }}
+            >
+              <Feather name="clock" size={10} color={semantic.warning} />
+              <Text style={{ fontFamily: 'Manrope_700Bold', fontSize: 11, color: semantic.warning }}>
+                {cooldownRestante}s
+              </Text>
+            </View>
+          )}
+        </View>
+
         <View
-          className="flex-row items-center rounded-full px-3 py-1.5"
-          style={{ backgroundColor: 'rgba(240,160,48,0.14)', borderWidth: 1, borderColor: 'rgba(240,160,48,0.35)', gap: 5 }}
+          className="rounded-xl px-4 py-4 mb-5"
+          style={{ backgroundColor: C.surfaceContainerHigh, borderWidth: 1, borderColor: C.outlineVariant }}
         >
-          <Feather name="clock" size={11} color="#f0a030" />
-          <Text style={{ fontFamily: 'Manrope_700Bold', fontSize: 11, color: '#f0a030' }}>
-            {cooldownRestante}s
+          <View className="flex-row items-center mb-2" style={{ gap: 7 }}>
+            <CheckCircle2 size={15} color={C.correct} />
+            <Text
+              style={{
+                fontFamily: 'Manrope_700Bold',
+                fontSize: 12,
+                letterSpacing: 0.4,
+                color: C.onSurfaceVariant,
+                textTransform: 'uppercase',
+              }}
+            >
+              {isDissertativa ? 'Resposta modelo' : 'Resposta correta'}
+            </Text>
+          </View>
+          <Text
+            style={{ fontFamily: 'Manrope_600SemiBold', fontSize: 16, lineHeight: 23, color: C.onSurface }}
+          >
+            {isDissertativa
+              ? currentQuestion.resposta_modelo
+              : currentQuestion.opcoes.find(o => o.id === currentQuestion.id_gabarito)?.rotulo}
           </Text>
         </View>
-      )}
-    </View>
-
-    {/* Resposta correta em destaque */}
-    <View className="flex-row items-center bg-[#a855f7]/10 border border-[#a855f7]/30 rounded-xl px-4 py-3 mb-4">
-      <Text className="text-base mr-2">✅</Text>
-      <Text
-        style={{ fontFamily: 'Manrope_500Medium', lineHeight: 20 }}
-        className="text-white/90 text-sm flex-1"
-      >
-        <Text style={{ fontFamily: 'Manrope_700Bold' }} className="text-[#a855f7]">
-          Resposta correta:{' '}
-        </Text>
-        {currentQuestion.opcoes.find(o => o.id === currentQuestion.id_gabarito)?.rotulo}
-      </Text>
-    </View>
-
-    {/* Divisor sutil */}
-    <View className="h-[1px] bg-white/10 mb-4" />
+      </>
+    )}
 
     {/* Texto da justificativa */}
     <Text
-      style={{ fontFamily: 'Manrope_500Medium', lineHeight: 22 }}
-      className="text-white/90 text-base text-left"
+      style={{ fontFamily: 'Manrope_500Medium', lineHeight: 23, color: C.onSurfaceVariant }}
+      className="text-base text-left"
     >
       {currentQuestion.justificativa}
     </Text>
-  </BottomSheetView>
+  </BottomSheetScrollView>
 </BottomSheetModal>
 
     </SafeAreaView>
@@ -977,7 +1106,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Manrope_700Bold',
     fontSize: 10,
     letterSpacing: 0.8,
-    color: '#f0a030',
+    color: semantic.warning,
   },
   question: {
     fontFamily: 'Manrope_800ExtraBold',
@@ -987,15 +1116,27 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     letterSpacing: -0.4,
   },
-  hint: {
-    fontFamily: 'Manrope_400Regular',
-    fontSize: 14,
-    lineHeight: 22,
-    color: C.onSurfaceVariant,
-    marginBottom: 32,
-  },
   optionsList: {
     gap: 10,
+  },
+  dissertativaInput: {
+    minHeight: 160,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: C.outlineVariant,
+    backgroundColor: C.surfaceContainerHigh,
+    padding: 16,
+    fontFamily: 'Manrope_500Medium',
+    fontSize: 15,
+    lineHeight: 22,
+    color: C.onSurface,
+  },
+  respostaModeloCard: {
+    borderRadius: 16,
+    padding: 16,
+    backgroundColor: C.surfaceContainerHigh,
+    borderWidth: 1,
+    borderColor: C.outlineVariant,
   },
 
   // ── ESTILOS ALTERADOS AQUI ──
@@ -1029,7 +1170,7 @@ const styles = StyleSheet.create({
   optionWrong: {
     backgroundColor: C.surfaceContainerHigh,
     borderWidth: 1.5,
-    borderColor: '#ff6b6b',
+    borderColor: semantic.danger,
   },
   optionText: {
     fontFamily: 'Manrope_500Medium',
@@ -1080,6 +1221,20 @@ const styles = StyleSheet.create({
     fontFamily: 'Manrope_700Bold',
     fontSize: 17,
     color: C.onPrimaryContainer,
+  },
+  autoavaliacaoButton: {
+    height: 58,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    backgroundColor: 'transparent',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  autoavaliacaoButtonText: {
+    fontFamily: 'Manrope_700Bold',
+    fontSize: 15,
   },
   confidenceTrack: {
     flex: 1,

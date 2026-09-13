@@ -33,7 +33,7 @@ export default function TodosOsConteudos() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-[#080510]" edges={["top", "bottom"]}>
+    <SafeAreaView className="flex-1 bg-surfaceDim" edges={["top", "bottom"]}>
       <StatusBar barStyle="light-content" />
 
       <View className="px-6 pt-4 pb-2 flex-row items-center">
@@ -54,7 +54,7 @@ export default function TodosOsConteudos() {
         contentContainerStyle={{ padding: 24, paddingBottom: 140 }}
       >
         {macrotemas.length === 0 ? (
-          <Text className="text-[#a09ba8] text-center mt-10">
+          <Text className="text-muted text-center mt-10">
             Nenhum conteúdo ainda. Envie um material para começar.
           </Text>
         ) : (
