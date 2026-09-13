@@ -4,7 +4,11 @@ import { HttpError } from "../../middlewares/errorHandler";
 interface SubmitAnswerInput {
   userId: string;
   perguntaId: string;
-  respostaEscolhida: "A" | "B" | "C" | "D";
+  // Níveis 1-3 (múltipla escolha): respostaEscolhida. Nível 4 (dissertativa,
+  // sem gabarito A-D pra comparar): autoavaliacao, o próprio aluno reportando
+  // se acertou depois de comparar sua resposta com a resposta_modelo.
+  respostaEscolhida?: "A" | "B" | "C" | "D";
+  autoavaliacao?: "acertou" | "errou";
 }
 
 interface SubmitAnswerResult {
@@ -12,7 +16,7 @@ interface SubmitAnswerResult {
   elixir_ganho: number;
   conceito: {
     id: string;
-    nivel_atual: 1 | 2 | 3;
+    nivel_atual: 1 | 2 | 3 | 4;
     status: string;
     proxima_revisao: string;
   };
@@ -24,25 +28,26 @@ function addDaysISO(base: Date, dias: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-const ELIXIR_POR_NIVEL: Record<1 | 2 | 3, number> = { 1: 30, 2: 50, 3: 100 };
+const ELIXIR_POR_NIVEL: Record<1 | 2 | 3 | 4, number> = { 1: 30, 2: 50, 3: 100, 4: 150 };
 const ELIXIR_ERRO = 10;
 
 /** Recompensa em elixir: acerto escala com o nível da pergunta (mais difícil, mais
  *  elixir); erro sempre rende um consolo fixo, pra manter o engajamento mesmo
  *  quando o aluno erra. */
-function calcularElixir(nivel: 1 | 2 | 3, acertou: boolean): number {
+function calcularElixir(nivel: 1 | 2 | 3 | 4, acertou: boolean): number {
   return acertou ? ELIXIR_POR_NIVEL[nivel] : ELIXIR_ERRO;
 }
 
 /**
  * updateConceptAfterAnswer (documento de MVP §7): o estado vive no conceito, não
  * na pergunta. Acertou -> sobe nível e agenda +3d (ou vira "dominado" com +7d se
- * já estava no nível 3). Errou -> mantém nível e agenda +1d.
+ * já estava no nível 4, a dissertativa). Errou -> mantém nível e agenda +1d.
  */
 export async function submitAnswer({
   userId,
   perguntaId,
   respostaEscolhida,
+  autoavaliacao,
 }: SubmitAnswerInput): Promise<SubmitAnswerResult> {
   const { data: pergunta, error: perguntaError } = await supabase
     .from("perguntas")
@@ -68,7 +73,17 @@ export async function submitAnswer({
     throw new HttpError(404, "Pergunta não encontrada.");
   }
 
-  const acertou = respostaEscolhida === pergunta.resposta;
+  // Nível 4 não tem `resposta` (gabarito A-D) pra comparar — confia na
+  // autoavaliação do aluno em vez de comparar contra o banco.
+  if (pergunta.nivel === 4) {
+    if (!autoavaliacao) {
+      throw new HttpError(400, "Envie autoavaliacao (acertou ou errou) para perguntas dissertativas.");
+    }
+  } else if (!respostaEscolhida) {
+    throw new HttpError(400, "Envie respostaEscolhida (A, B, C ou D).");
+  }
+
+  const acertou = pergunta.nivel === 4 ? autoavaliacao === "acertou" : respostaEscolhida === pergunta.resposta;
   const elixirGanho = calcularElixir(pergunta.nivel, acertou);
   const performanceAtual = conceito.performance ?? { vezes_revisado: 0, acertos: 0, erros: 0 };
   const novaPerformance = {
@@ -78,16 +93,16 @@ export async function submitAnswer({
   };
 
   const hoje = new Date();
-  let novoNivel: 1 | 2 | 3 = conceito.nivel_atual;
+  let novoNivel: 1 | 2 | 3 | 4 = conceito.nivel_atual;
   let novoStatus: string;
   let proximaRevisao: string;
 
   if (acertou) {
-    if (conceito.nivel_atual >= 3) {
+    if (conceito.nivel_atual >= 4) {
       novoStatus = "dominado";
       proximaRevisao = addDaysISO(hoje, 7);
     } else {
-      novoNivel = (conceito.nivel_atual + 1) as 1 | 2 | 3;
+      novoNivel = (conceito.nivel_atual + 1) as 1 | 2 | 3 | 4;
       novoStatus = "em_reforco";
       proximaRevisao = addDaysISO(hoje, 3);
     }

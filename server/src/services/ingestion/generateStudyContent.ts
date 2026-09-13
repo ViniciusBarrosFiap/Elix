@@ -17,11 +17,14 @@ import { buildConceitosPrompt, buildSubtemasPrompt } from "./buildPrompt";
 // generateStudyContent() para o porquê (arquitetura em 2 fases/N agentes).
 //
 // O modo strict da OpenAI não aceita minItems/maxItems em arrays nem campos
-// opcionais — quem garante "exatamente 3 perguntas, níveis 1/2/3 sem repetir"
-// continua sendo a validação Zod logo abaixo, este schema é só um guia
-// estrutural pro modelo.
+// opcionais — quem garante "exatamente 4 perguntas, níveis 1/2/3/4 sem
+// repetir" continua sendo a validação Zod logo abaixo, este schema é só um
+// guia estrutural pro modelo. Nível 4 (dissertativa) tem um formato diferente
+// dos níveis 1-3 (sem alternativas/resposta, com resposta_modelo no lugar) —
+// modelado como `anyOf` de duas variantes, já que o modo strict não aceita
+// propriedade "opcional" dentro de um único objeto.
 
-const perguntaItemSchema = {
+const perguntaMultiplaEscolhaItemSchema = {
   type: "object",
   properties: {
     nivel: { type: "integer", enum: [1, 2, 3] },
@@ -43,6 +46,23 @@ const perguntaItemSchema = {
   },
   required: ["nivel", "pergunta", "dica", "alternativas", "resposta", "explicacao"],
   additionalProperties: false,
+};
+
+const perguntaDissertativaItemSchema = {
+  type: "object",
+  properties: {
+    nivel: { type: "integer", enum: [4] },
+    pergunta: { type: "string" },
+    dica: { type: "string" },
+    resposta_modelo: { type: "string" },
+    explicacao: { type: "string" },
+  },
+  required: ["nivel", "pergunta", "dica", "resposta_modelo", "explicacao"],
+  additionalProperties: false,
+};
+
+const perguntaItemSchema = {
+  anyOf: [perguntaMultiplaEscolhaItemSchema, perguntaDissertativaItemSchema],
 };
 
 const conceitoItemSchema = {

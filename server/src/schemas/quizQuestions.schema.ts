@@ -12,9 +12,13 @@ export interface QuizQuestion {
   titulo: string;
   dica: string;
   ja_errou: boolean;
-  nivel: 1 | 2 | 3;
+  nivel: 1 | 2 | 3 | 4;
+  // Níveis 1-3 (múltipla escolha): opcoes/id_gabarito preenchidos, resposta_modelo null.
+  // Nível 4 (dissertativa): opcoes vazio, id_gabarito null, resposta_modelo preenchido —
+  // o aluno se autoavalia contra ela em vez de escolher uma alternativa.
   opcoes: QuizOption[];
-  id_gabarito: string;
+  id_gabarito: string | null;
+  resposta_modelo: string | null;
   justificativa: string;
 }
 

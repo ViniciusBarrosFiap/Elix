@@ -6,12 +6,14 @@ import { z } from "zod";
 export const statusDominioSchema = z.enum(["comecando", "em_reforco", "consolidando"]);
 
 // Status de conceito é um vocabulário à parte: nasce 'novo' e evolui via
-// POST /api/quiz/answer (ver submitAnswer.ts) até 'dominado' no nível 3.
+// POST /api/quiz/answer (ver submitAnswer.ts) até 'dominado' ao acertar o
+// nível 4 (a pergunta dissertativa).
 export const statusConceitoSchema = z.enum(["novo", "em_reforco", "consolidando", "dominado"]);
 
-// nivel 1=identificação, 2=relação entre conceitos, 3=aplicação contextual (doc MVP §5).
-export const nivelPerguntaSchema = z.union([z.literal(1), z.literal(2), z.literal(3)]);
-export const tipoPerguntaSchema = z.enum(["identificacao", "relacao", "aplicacao"]);
+// nivel 1=identificação, 2=relação entre conceitos, 3=aplicação contextual,
+// 4=dissertativa/produção ativa — a que agora define "dominado" (doc MVP §5).
+export const nivelPerguntaSchema = z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]);
+export const tipoPerguntaSchema = z.enum(["identificacao", "relacao", "aplicacao", "dissertativa"]);
 
 export const respostaOpcaoSchema = z.enum(["A", "B", "C", "D"]);
 
@@ -25,11 +27,14 @@ export const alternativasSchema = z.object({
 // ── O que a IA precisa gerar por upload ──────────────────────────────────
 // Só subtemas/conceitos/perguntas: o macrotema já existe (é a disciplina escolhida
 // no dropdown), então a IA não inventa mais a organização de alto nível.
-// Cada conceito deve ter exatamente 3 perguntas — uma por nível — e a IA só
+// Cada conceito deve ter exatamente 4 perguntas — uma por nível — e a IA só
 // decide o `nivel`; o `tipo` é derivado dele no banco (ver 002_functions.sql).
+// Níveis 1-3 são múltipla escolha (alternativas + resposta); o nível 4 é
+// dissertativo — sem alternativas/resposta, com `resposta_modelo` no lugar,
+// usada pelo aluno pra se autoavaliar (sem gabarito A-D pra comparar).
 
-export const generatedPerguntaSchema = z.object({
-  nivel: nivelPerguntaSchema,
+const perguntaMultiplaEscolhaSchema = z.object({
+  nivel: z.union([z.literal(1), z.literal(2), z.literal(3)]),
   pergunta: z.string().min(1),
   dica: z.string().min(1), // hint pré-resposta, NÃO pode revelar a resposta certa
   alternativas: alternativasSchema,
@@ -37,15 +42,25 @@ export const generatedPerguntaSchema = z.object({
   explicacao: z.string().min(1), // só aparece pós-resposta
 });
 
+const perguntaDissertativaSchema = z.object({
+  nivel: z.literal(4),
+  pergunta: z.string().min(1),
+  dica: z.string().min(1),
+  resposta_modelo: z.string().min(1), // gabarito em texto livre, revelado pro aluno se autoavaliar
+  explicacao: z.string().min(1),
+});
+
+export const generatedPerguntaSchema = z.union([perguntaMultiplaEscolhaSchema, perguntaDissertativaSchema]);
+
 export const generatedConceitoSchema = z.object({
   nome: z.string().min(1),
   tag_foco: z.boolean(),
   perguntas: z
     .array(generatedPerguntaSchema)
-    .length(3, "cada conceito precisa de exatamente 3 perguntas (níveis 1, 2 e 3)")
+    .length(4, "cada conceito precisa de exatamente 4 perguntas (níveis 1, 2, 3 e 4)")
     .refine(
-      (perguntas) => new Set(perguntas.map((p) => p.nivel)).size === 3,
-      "as 3 perguntas do conceito devem cobrir os níveis 1, 2 e 3 sem repetir"
+      (perguntas) => new Set(perguntas.map((p) => p.nivel)).size === 4,
+      "as 4 perguntas do conceito devem cobrir os níveis 1, 2, 3 e 4 sem repetir"
     ),
 });
 
@@ -78,8 +93,11 @@ export interface Pergunta {
   tipo: z.infer<typeof tipoPerguntaSchema>;
   pergunta: string;
   dica: string;
-  alternativas: z.infer<typeof alternativasSchema>;
-  resposta: z.infer<typeof respostaOpcaoSchema>;
+  // Níveis 1-3 (múltipla escolha): preenchidos. Nível 4 (dissertativa): null,
+  // com resposta_modelo preenchido no lugar (ver perguntas_gabarito_por_nivel_check).
+  alternativas: z.infer<typeof alternativasSchema> | null;
+  resposta: z.infer<typeof respostaOpcaoSchema> | null;
+  resposta_modelo: string | null;
   explicacao: string;
 }
 

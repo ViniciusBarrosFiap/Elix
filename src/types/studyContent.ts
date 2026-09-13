@@ -11,7 +11,7 @@ export const STATUS_LABEL: Record<Status, string> = {
 };
 
 // Status de conceito — vocabulário à parte, evolui via POST /api/quiz/answer
-// (nasce "novo" e chega a "dominado" ao acertar o nível 3).
+// (nasce "novo" e chega a "dominado" ao acertar o nível 4, a dissertativa).
 export type StatusConceito =
   | "novo"
   | "em_reforco"
@@ -25,12 +25,13 @@ export const STATUS_CONCEITO_LABEL: Record<StatusConceito, string> = {
   dominado: "Dominado",
 };
 
-export type NivelPergunta = 1 | 2 | 3;
+export type NivelPergunta = 1 | 2 | 3 | 4;
 
 export type TipoPergunta =
   | "identificacao"
   | "relacao"
-  | "aplicacao";
+  | "aplicacao"
+  | "dissertativa";
 
 export interface Performance {
   vezes_revisado: number;
@@ -56,14 +57,18 @@ export interface Pergunta {
 
   dica: string;
 
+  // Níveis 1-3 (múltipla escolha): preenchidos, resposta_modelo null.
+  // Nível 4 (dissertativa): null, com resposta_modelo preenchido no lugar.
   alternativas: {
     A: Alternativas["A"];
     B: Alternativas["B"];
     C: Alternativas["C"];
     D: Alternativas["D"];
-  };
+  } | null;
 
-  resposta: "A" | "B" | "C" | "D";
+  resposta: "A" | "B" | "C" | "D" | null;
+
+  resposta_modelo: string | null;
 
   explicacao: string;
 }

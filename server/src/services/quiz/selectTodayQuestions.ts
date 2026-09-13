@@ -11,17 +11,18 @@ import { QuizQuestionsData } from "../../schemas/quizQuestions.schema";
 interface ConceitoRow {
   id: string;
   nome: string;
-  nivel_atual: 1 | 2 | 3;
+  nivel_atual: 1 | 2 | 3 | 4;
   tag_foco: boolean;
   proxima_revisao: string;
   performance: { vezes_revisado: number; acertos: number; erros: number };
   perguntas: {
     id: string;
-    nivel: 1 | 2 | 3;
+    nivel: 1 | 2 | 3 | 4;
     pergunta: string;
     dica: string;
-    alternativas: Record<"A" | "B" | "C" | "D", string>;
-    resposta: "A" | "B" | "C" | "D";
+    alternativas: Record<"A" | "B" | "C" | "D", string> | null;
+    resposta: "A" | "B" | "C" | "D" | null;
+    resposta_modelo: string | null;
     explicacao: string;
   }[];
   sub_temas: {
@@ -73,7 +74,7 @@ export async function selectTodayQuestions(
     .select(
       `
       id, nome, nivel_atual, tag_foco, proxima_revisao, performance,
-      perguntas ( id, nivel, pergunta, dica, alternativas, resposta, explicacao ),
+      perguntas ( id, nivel, pergunta, dica, alternativas, resposta, resposta_modelo, explicacao ),
       sub_temas!inner (
         macro_temas!inner ( id, nome, user_id, ativo )
       )
@@ -119,6 +120,8 @@ export async function selectTodayQuestions(
   const priorizados = limit && limit > 0 ? priorizadosOrdenados.slice(0, limit) : priorizadosOrdenados;
 
   const questoes = priorizados.map(({ conceito, pergunta }) => {
+    // Nível 4 (dissertativa) não tem alternativas/resposta — o aluno se
+    // autoavalia contra resposta_modelo em vez de escolher uma opção.
     const alternativas = pergunta.alternativas;
 
     return {
@@ -129,11 +132,14 @@ export async function selectTodayQuestions(
       dica: pergunta.dica,
       ja_errou: conceito.performance.erros > 0,
       nivel: pergunta.nivel,
-      opcoes: (["A", "B", "C", "D"] as const).map((letra) => ({
-        id: letra.toLowerCase(),
-        rotulo: alternativas[letra],
-      })),
-      id_gabarito: pergunta.resposta.toLowerCase(),
+      opcoes: alternativas
+        ? (["A", "B", "C", "D"] as const).map((letra) => ({
+            id: letra.toLowerCase(),
+            rotulo: alternativas[letra],
+          }))
+        : [],
+      id_gabarito: pergunta.resposta ? pergunta.resposta.toLowerCase() : null,
+      resposta_modelo: pergunta.resposta_modelo,
       justificativa: pergunta.explicacao,
     };
   });

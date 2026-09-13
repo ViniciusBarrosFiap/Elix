@@ -82,18 +82,24 @@ ${buildFocoLine({ tags })}
 
 O material completo abaixo já foi dividido em vários subtemas por outra etapa. Sua tarefa AGORA é gerar apenas o conteúdo do subtema "${subtemaNome}" — ignore trechos do material que pertençam a outros subtemas.
 
-Organize o conteúdo desse subtema em um ou mais conceitos (1 a 3). Para CADA conceito, gere exatamente 3 perguntas de múltipla escolha (4 alternativas A/B/C/D) — uma para cada nível, sempre nesta ordem pedagógica:
+Organize o conteúdo desse subtema em um ou mais conceitos (1 a 3). Para CADA conceito, gere exatamente 4 perguntas — uma para cada nível, sempre nesta ordem pedagógica:
 
-- Nível 1 (identificação): o estudante reconhece o conceito de forma direta. Responde "o estudante sabe o que é esse conceito?".
-- Nível 2 (relação entre conceitos): o estudante conecta o conceito com outros conceitos do mesmo material. Responde "o estudante entende como esse conceito se relaciona com outros?".
-- Nível 3 (aplicação contextual): o estudante aplica o conceito em uma situação prática ou cenário real. Responde "o estudante consegue usar esse conceito em um contexto real?".
+- Nível 1 (identificação, múltipla escolha): o estudante reconhece o conceito de forma direta. Responde "o estudante sabe o que é esse conceito?".
+- Nível 2 (relação entre conceitos, múltipla escolha): o estudante conecta o conceito com outros conceitos do mesmo material. Responde "o estudante entende como esse conceito se relaciona com outros?".
+- Nível 3 (aplicação contextual, múltipla escolha): o estudante aplica o conceito em uma situação prática ou cenário real. Responde "o estudante consegue usar esse conceito em um contexto real?".
+- Nível 4 (dissertativa, produção ativa — a etapa que marca o conceito como DOMINADO): o estudante escreve, com as próprias palavras, uma explicação do conceito. Não tem alternativas nem "resposta" — em vez disso, gere "resposta_modelo": um parágrafo curto que sirva de gabarito pro aluno comparar com o que ele mesmo escreveu e se autoavaliar. A pergunta deve pedir mais do que decorar uma definição — deve exigir explicar, relacionar ou justificar o conceito com as próprias palavras.
+
+Formato de CADA pergunta, conforme o nível:
+- Níveis 1, 2 e 3: "nivel", "pergunta", "dica", "alternativas" (objeto com A/B/C/D), "resposta" (a letra certa), "explicacao".
+- Nível 4: "nivel", "pergunta", "dica", "resposta_modelo" (o parágrafo-gabarito), "explicacao". NÃO inclua "alternativas" nem "resposta" nessa pergunta.
 
 Regras obrigatórias:
-- Cada conceito deve ter EXATAMENTE 3 perguntas: uma com "nivel": 1, uma com "nivel": 2, uma com "nivel": 3. Nunca repita nível nem pule algum.
+- Cada conceito deve ter EXATAMENTE 4 perguntas: uma com "nivel": 1, uma com "nivel": 2, uma com "nivel": 3, uma com "nivel": 4. Nunca repita nível nem pule algum.
 - "tag_foco" de cada conceito deve ser true apenas se ele estiver diretamente relacionado aos tópicos de foco pedidos pelo aluno (quando houver); caso contrário, false.
-- "dica" é um texto curto mostrado ANTES do aluno responder — NUNCA revele ou insinue a resposta correta nela.
-- "explicacao" é mostrada DEPOIS do aluno responder — aí sim pode e deve explicar por que a resposta está certa.
+- "dica" é um texto curto mostrado ANTES do aluno responder — NUNCA revele ou insinue a resposta correta nela (isso vale também pra pergunta dissertativa: a dica não pode conter a resposta_modelo nem se aproximar dela).
+- "explicacao" é mostrada DEPOIS do aluno responder — aí sim pode e deve explicar por que a resposta está certa (nas de nível 1-3) ou complementar a resposta_modelo (no nível 4).
 - Baseie-se estritamente no conteúdo do material abaixo. Não invente fatos que não estejam nele.
+- Varie a posição da alternativa correta entre as perguntas de múltipla escolha (A, B, C ou D) — não deixe a resposta certa sempre na mesma letra nem siga um padrão previsível.
 - Responda em português do Brasil.
 ${buildCorrecaoBlock(correcaoAnterior)}
 

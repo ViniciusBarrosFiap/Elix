@@ -10,7 +10,7 @@ const NESTED_SELECT = `
     conceitos (
       id, nome, status, nivel_atual, tag_foco, proxima_revisao, performance,
       perguntas (
-        id, nivel, tipo, pergunta, dica, alternativas, resposta, explicacao
+        id, nivel, tipo, pergunta, dica, alternativas, resposta, resposta_modelo, explicacao
       )
     )
   )
@@ -29,7 +29,7 @@ function materialTipoFromMime(mimeType: string | null): MaterialTipo {
 // ficaria travada em "comecando" pra sempre. Em vez disso, é derivada aqui a
 // partir do domínio real dos conceitos (mesma lógica de "subtemas_ativos": nunca
 // armazenada, sempre recalculada na leitura).
-const NIVEL_MASTERY: Record<number, number> = { 1: 0, 2: 33, 3: 67 };
+const NIVEL_MASTERY: Record<number, number> = { 1: 0, 2: 25, 3: 50, 4: 75 };
 
 function conceitoMastery(conceito: Pick<Conceito, "status" | "nivel_atual">): number {
   if (conceito.status === "dominado") return 100;
@@ -80,6 +80,7 @@ export async function getStudyContent(userId: string): Promise<StudyContentData>
           dica: pergunta.dica,
           alternativas: pergunta.alternativas,
           resposta: pergunta.resposta,
+          resposta_modelo: pergunta.resposta_modelo,
           explicacao: pergunta.explicacao,
         })),
       }));

@@ -12,7 +12,10 @@ export const QuizQuestionsService = {
       .setData(data);
   },
 
-  async submitAnswer(perguntaId: string, resposta: string) {
-    return QuizQuestionsRepository.submitAnswer(perguntaId, resposta);
+  // `resposta` (A-D) é pra perguntas de múltipla escolha (nível 1-3);
+  // `autoavaliacao` é pra dissertativas (nível 4, sem gabarito A-D) — o
+  // aluno reporta se acertou depois de comparar com a resposta_modelo.
+  async submitAnswer(perguntaId: string, resposta?: string, autoavaliacao?: "acertou" | "errou") {
+    return QuizQuestionsRepository.submitAnswer(perguntaId, resposta, autoavaliacao);
   },
 };

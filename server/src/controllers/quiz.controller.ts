@@ -23,9 +23,30 @@ export async function getTodayQuiz(req: Request, res: Response) {
 export async function postQuizAnswer(req: Request, res: Response) {
   const perguntaId = req.body.pergunta_id as string | undefined;
   const resposta = req.body.resposta as string | undefined;
+  const autoavaliacao = req.body.autoavaliacao as string | undefined;
 
-  if (!perguntaId || !resposta) {
-    throw new HttpError(400, "Envie pergunta_id e resposta.");
+  if (!perguntaId) {
+    throw new HttpError(400, "Envie pergunta_id.");
+  }
+
+  // Nível 4 (dissertativa) não tem gabarito A-D — o aluno manda autoavaliacao
+  // em vez de resposta (ver submitAnswer.ts).
+  if (autoavaliacao) {
+    if (!["acertou", "errou"].includes(autoavaliacao)) {
+      throw new HttpError(400, "autoavaliacao deve ser 'acertou' ou 'errou'.");
+    }
+
+    const result = await submitAnswer({
+      userId: req.user!.id,
+      perguntaId,
+      autoavaliacao: autoavaliacao as "acertou" | "errou",
+    });
+
+    return res.status(200).json(result);
+  }
+
+  if (!resposta) {
+    throw new HttpError(400, "Envie resposta (ou autoavaliacao, para perguntas dissertativas).");
   }
 
   const respostaNormalizada = resposta.toUpperCase();

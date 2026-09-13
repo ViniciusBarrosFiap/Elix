@@ -6,7 +6,7 @@ export interface SubmitAnswerResult {
   elixir_ganho: number;
   conceito: {
     id: string;
-    nivel_atual: 1 | 2 | 3;
+    nivel_atual: 1 | 2 | 3 | 4;
     status: string;
     proxima_revisao: string;
   };
@@ -18,10 +18,14 @@ export const QuizQuestionsRepository = {
     return apiFetch<QuizQuestionsData>(`/api/quiz/today${query}`);
   },
 
-  async submitAnswer(perguntaId: string, resposta: string): Promise<SubmitAnswerResult> {
+  async submitAnswer(
+    perguntaId: string,
+    resposta?: string,
+    autoavaliacao?: "acertou" | "errou"
+  ): Promise<SubmitAnswerResult> {
     return apiFetch<SubmitAnswerResult>("/api/quiz/answer", {
       method: "POST",
-      body: { pergunta_id: perguntaId, resposta },
+      body: { pergunta_id: perguntaId, resposta, autoavaliacao },
     });
   },
 };
