@@ -23,6 +23,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BottomSheetBackdrop, BottomSheetModal, BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { BlurView } from 'expo-blur';
 import ElixirFlaskRN, { ElixirFlaskHandle } from '@/src/components/ElixirFlaskRN';
+import Markdown from 'react-native-markdown-display';
 import { colors, semantic } from '@/src/theme/colors';
 
 // ─── Design Tokens — paleta compartilhada em src/theme/colors.ts.
@@ -1005,13 +1006,12 @@ export default function QuizScreen() {
       </>
     )}
 
-    {/* Texto da justificativa */}
-    <Text
-      style={{ fontFamily: 'Manrope_500Medium', lineHeight: 23, color: C.onSurfaceVariant }}
-      className="text-base text-left"
-    >
+    {/* Texto da justificativa — vem em markdown da IA (ver buildPrompt.ts),
+        por isso passa pelo parser em vez de um <Text> puro (senão
+        "**negrito**"/"- item" apareceriam com os símbolos literais). */}
+    <Markdown style={justificativaMarkdownStyles}>
       {currentQuestion.justificativa}
-    </Text>
+    </Markdown>
   </BottomSheetScrollView>
 </BottomSheetModal>
 
@@ -1277,3 +1277,52 @@ const styles = StyleSheet.create({
     color: C.primary,
   },
 });
+
+// Estilos do markdown da justificativa (bottom sheet) — mesma tipografia e
+// paleta do resto da tela, em vez do visual padrão da lib.
+const justificativaMarkdownStyles = {
+  body: {
+    fontFamily: 'Manrope_500Medium',
+    fontSize: 16,
+    lineHeight: 23,
+    color: C.onSurfaceVariant,
+  },
+  paragraph: {
+    marginTop: 0,
+    marginBottom: 12,
+  },
+  strong: {
+    fontFamily: 'Manrope_700Bold',
+    color: C.onSurface,
+  },
+  em: {
+    fontStyle: 'italic' as const,
+    color: C.onSurface,
+  },
+  bullet_list: {
+    marginBottom: 12,
+  },
+  ordered_list: {
+    marginBottom: 12,
+  },
+  list_item: {
+    marginBottom: 6,
+    flexDirection: 'row' as const,
+  },
+  bullet_list_icon: {
+    color: C.primary,
+    marginRight: 8,
+  },
+  ordered_list_icon: {
+    color: C.primary,
+    marginRight: 8,
+    fontFamily: 'Manrope_700Bold',
+  },
+  code_inline: {
+    backgroundColor: C.surfaceContainerHigh,
+    color: C.onSurface,
+    fontFamily: 'Manrope_500Medium',
+    paddingHorizontal: 4,
+    borderRadius: 4,
+  },
+};

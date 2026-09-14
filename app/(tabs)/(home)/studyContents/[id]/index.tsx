@@ -127,8 +127,6 @@ export default function DisciplinaDetalhe() {
   // daquele material específico.
   interface ResumoMaterial {
     material: NonNullable<typeof macroTema>["subtemas"][number]["material"];
-    totalSubtemas: number;
-    totalConceitos: number;
     totalErros: number;
     totalVencidos: number;
     totalAtrasados: number;
@@ -138,22 +136,18 @@ export default function DisciplinaDetalhe() {
   const materiais = useMemo<ResumoMaterial[]>(() => {
     if (!macroTema) return [];
 
-    const porMaterial = new Map<string, { material: ResumoMaterial["material"]; conceitos: typeof macroTema.subtemas[number]["conceitos"]; totalSubtemas: number }>();
+    const porMaterial = new Map<string, { material: ResumoMaterial["material"]; conceitos: typeof macroTema.subtemas[number]["conceitos"] }>();
     for (const subtema of macroTema.subtemas) {
       const grupo = porMaterial.get(subtema.material.id) ?? {
         material: subtema.material,
         conceitos: [],
-        totalSubtemas: 0,
       };
-      grupo.totalSubtemas += 1;
       grupo.conceitos.push(...subtema.conceitos);
       porMaterial.set(subtema.material.id, grupo);
     }
 
     const resumos: ResumoMaterial[] = Array.from(porMaterial.values()).map((grupo) => ({
       material: grupo.material,
-      totalSubtemas: grupo.totalSubtemas,
-      totalConceitos: grupo.conceitos.length,
       totalErros: grupo.conceitos.filter((c) => c.performance.erros > 0).length,
       totalVencidos: grupo.conceitos.filter(conceitoVencido).length,
       totalAtrasados: grupo.conceitos.filter((c) => revisaoUrgencia(c) === "atrasado").length,
@@ -245,7 +239,7 @@ export default function DisciplinaDetalhe() {
   const corDominio = (pct: number) => (pct >= 80 ? semantic.success : pct >= 34 ? semantic.warning : semantic.info);
 
   const renderMaterial = (resumo: ResumoMaterial) => {
-    const { material, totalSubtemas, totalConceitos: conceitosDoMaterial, totalVencidos, totalAtrasados, dominio } = resumo;
+    const { material, totalVencidos, totalAtrasados, dominio } = resumo;
     const MaterialIcon = MATERIAL_TIPO_ICON[material.tipo];
     const podeAbrir = material.tipo !== "notion";
     const abrindo = abrindoId === material.id;
@@ -298,13 +292,8 @@ export default function DisciplinaDetalhe() {
           >
             {MATERIAL_TIPO_LABEL[material.tipo]}
           </Text>
-          <Text className="text-white text-base font-bold mb-1.5" numberOfLines={1}>
+          <Text className="text-white text-base font-bold" numberOfLines={1}>
             {material.nome}
-          </Text>
-
-          <Text className="text-xs" style={{ color: MUTED }}>
-            {totalSubtemas} {totalSubtemas === 1 ? "subtema" : "subtemas"} · {conceitosDoMaterial}{" "}
-            {conceitosDoMaterial === 1 ? "conceito" : "conceitos"}
           </Text>
         </View>
 

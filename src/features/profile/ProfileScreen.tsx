@@ -5,6 +5,7 @@ import {
   Cloud,
   Droplet,
   Flame,
+  FlaskConical,
   Pencil,
   Trash2,
   User,
@@ -248,6 +249,16 @@ export default function ProfileScreen() {
               </View>
             }
           />
+          {__DEV__ && (
+            <>
+              <View style={{ height: 1, backgroundColor: "rgba(255,255,255,0.06)" }} />
+              <SettingsRow
+                icon={<FlaskConical size={18} color={PRIMARY_LIGHT} />}
+                label="Testes"
+                onPress={() => router.push("/testes" as any)}
+              />
+            </>
+          )}
           <View style={{ height: 1, backgroundColor: "rgba(255,255,255,0.06)" }} />
 
           <SettingsRow

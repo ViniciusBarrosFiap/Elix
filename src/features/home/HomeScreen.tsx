@@ -9,7 +9,6 @@ import React, { useCallback, useEffect, useRef } from "react";
 import { Animated, ScrollView, StatusBar, Text, TouchableOpacity, View } from "react-native";
 import Header from "./components/Header";
 import DoseCard from "./components/DoseCard";
-import Insights from "./components/Insights";
 import ProgressSection from "./components/ProgressSection";
 import YourContents from "./components/YourContents";
 import ContentCards from "./components/ContentCards";
@@ -118,7 +117,7 @@ export default function HomeScreen() {
 
           {/* <ProgressSection /> */}
 
-            {/* <Insights /> */}
+         
           <YourContents onPress={() => router.push("/(tabs)/studyContents")} />
           <ContentCards macroTemas={studyContentData?.macrotemas} />
         </ScrollView>

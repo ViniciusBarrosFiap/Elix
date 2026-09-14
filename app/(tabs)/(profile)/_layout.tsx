@@ -8,6 +8,7 @@ export default function ProfileStackLayout() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="profile/index" />
+      <Stack.Screen name="testes" />
     </Stack>
   );
 }
