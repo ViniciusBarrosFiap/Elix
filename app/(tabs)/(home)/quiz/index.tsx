@@ -1,5 +1,5 @@
 import { Feather } from '@expo/vector-icons';
-import { CheckCircle2, XCircle, Zap } from 'lucide-react-native';
+import { ArrowUp, CheckCircle2, XCircle, Zap } from 'lucide-react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import '@/global.css'
@@ -14,6 +14,8 @@ import {
     Button,
     Pressable,
     PanResponder,
+    KeyboardAvoidingView,
+    Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { QuizQuestionsService } from '@/src/services/quiz/quiz.service';
@@ -44,6 +46,15 @@ function calcularElixir(nivel: 1 | 2 | 3 | 4, acertou: boolean): number {
 // o Bottom Sheet abre sozinho por causa do erro, não quando ele abre por
 // vontade própria (botão "?").
 const COOLDOWN_JUSTIFICATIVA_SEGUNDOS = 8;
+
+// Campo de resposta da dissertativa (nível 4): nasce cabendo só 1 linha e
+// cresce sozinho junto com o texto — minHeight/maxHeight (aplicados direto no
+// estilo, sem estado nem onContentSizeChange) deixam o próprio TextInput
+// multiline crescer nativamente, sem re-render a cada tecla (isso é o que
+// antes fazia o teclado "pular": cada tecla recalculava a altura em JS).
+// MIN = 1 linha + padding vertical (paddingVertical 18 × 2 + lineHeight 22).
+const DISSERTATIVA_INPUT_ALTURA_MIN = 58;
+const DISSERTATIVA_INPUT_ALTURA_MAX = 280;
 
 // ─── Slider de confiança ───
 // Substitui o botão "Confirmar": o aluno arrasta (ou toca direto num ponto)
@@ -411,6 +422,11 @@ export default function QuizScreen() {
   // revela a resposta_modelo gerada pela IA e se autoavalia contra ela.
   const [respostaTexto, setRespostaTexto] = useState('');
   const [respostaModeloRevelada, setRespostaModeloRevelada] = useState(false);
+  // Enquanto o teclado está aberto pra digitar a resposta, o botão do rodapé
+  // fica embaixo dele (o KeyboardAvoidingView sozinho não resolve, já que o
+  // campo pode estar mais abaixo do que a altura livre) — some com o botão
+  // nesse momento em vez de deixar ele flutuando por cima do teclado.
+  const [respostaInputFocada, setRespostaInputFocada] = useState(false);
 
   // ─── Animação do Líquido ───
   const liquidAnim = useRef(new Animated.Value(0)).current;
@@ -456,6 +472,7 @@ export default function QuizScreen() {
     setProntoParaConfirmar(false);
     setRespostaTexto('');
     setRespostaModeloRevelada(false);
+    setRespostaInputFocada(false);
     // Sem isso, trocar de pergunta mantinha a posição de scroll da pergunta
     // anterior — a nova já nascia rolada (e o header, escondido) se o aluno
     // tivesse descido antes de responder.
@@ -649,7 +666,17 @@ export default function QuizScreen() {
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
-
+      {/* Sem isso, o teclado (aberto pelo campo de resposta da dissertativa,
+          nível 4) simplesmente cobria o rodapé com os botões — nada empurrava
+          o layout pra cima. Só no iOS: no Android o app já usa
+          softwareKeyboardLayoutMode "pan" (app.json) — a própria tela inteira
+          sobe sozinha nativamente, então aplicar "height" aqui TAMBÉM
+          empurrava o layout (dobrado), sobrando um tarjão da cor do fundo
+          entre o conteúdo e o teclado. */}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
 
       {/* Área da pergunta ocupa a tela inteira (inclusive por trás do
           header) — o header vira uma camada flutuante por cima (ver
@@ -686,16 +713,48 @@ export default function QuizScreen() {
 
           {isDissertativa ? (
             <View style={{ gap: 16 }}>
-              <TextInput
-                value={respostaTexto}
-                onChangeText={setRespostaTexto}
-                editable={!confirmed}
-                multiline
-                textAlignVertical="top"
-                placeholder="Escreva sua resposta com suas próprias palavras..."
-                placeholderTextColor={C.onSurfaceVariant}
-                style={styles.dissertativaInput}
-              />
+              <View style={{ position: 'relative' }}>
+                <TextInput
+                  value={respostaTexto}
+                  onChangeText={setRespostaTexto}
+                  onFocus={() => {
+                    setRespostaInputFocada(true);
+                    // Rola até o fim assim que o teclado abre — o campo é o
+                    // último conteúdo relevante da tela, então "fim" =
+                    // "logo acima do teclado", sem precisar calcular posição.
+                    requestAnimationFrame(() => scrollViewRef.current?.scrollToEnd({ animated: true }));
+                  }}
+                  onBlur={() => setRespostaInputFocada(false)}
+                  onContentSizeChange={() => {
+                    // O campo cresce sozinho (minHeight/maxHeight nativos, ver
+                    // constantes acima) — sem isso, ele cresce "pra baixo" e o
+                    // teclado acaba cobrindo a parte nova, mesmo já tendo
+                    // rolado até o fim uma vez no foco.
+                    requestAnimationFrame(() => scrollViewRef.current?.scrollToEnd({ animated: true }));
+                  }}
+                  editable={!confirmed}
+                  multiline
+                  textAlignVertical="top"
+                  placeholder="Escreva sua resposta com suas próprias palavras..."
+                  placeholderTextColor={C.onSurfaceVariant}
+                  style={styles.dissertativaInput}
+                />
+
+                {/* Botão de envio embutido no campo — substitui o antigo
+                    botão "Ver resposta modelo" no rodapé, que ficava embaixo
+                    do teclado. Some depois de revelado (não tem mais o que
+                    enviar) e enquanto a resposta já foi confirmada. */}
+                {!respostaModeloRevelada && !confirmed && (
+                  <TouchableOpacity
+                    onPress={() => setRespostaModeloRevelada(true)}
+                    activeOpacity={0.85}
+                    style={styles.enviarRespostaButton}
+                    accessibilityLabel="Ver resposta modelo"
+                  >
+                    <ArrowUp size={18} color={C.surface} strokeWidth={2.5} />
+                  </TouchableOpacity>
+                )}
+              </View>
 
               {respostaModeloRevelada && (
                 <View style={styles.respostaModeloCard}>
@@ -794,7 +853,7 @@ export default function QuizScreen() {
               volta assim que rola de volta pro topo. */}
           <Animated.View
             style={[
-              { flexDirection: 'row', alignItems: 'center', gap: 12, overflow: 'hidden', paddingHorizontal: 24, paddingTop: 16, paddingBottom: 12 },
+              { flexDirection: 'row', alignItems: 'center', gap: 12, overflow: 'hidden', paddingHorizontal: 24, paddingTop: 4, paddingBottom: 12 },
               headerExtraStyle,
             ]}
           >
@@ -858,15 +917,11 @@ export default function QuizScreen() {
         <View style={{ flexDirection: 'row', gap: 12 }}>
         {!confirmed ? (
           isDissertativa ? (
-            !respostaModeloRevelada ? (
-              <TouchableOpacity
-                style={[styles.nextButton, { flex: 1 }]}
-                activeOpacity={0.85}
-                onPress={() => setRespostaModeloRevelada(true)}
-              >
-                <Text style={styles.nextButtonText}>Ver resposta modelo</Text>
-              </TouchableOpacity>
-            ) : (
+            // O botão de revelar a resposta modelo agora fica embutido no
+            // próprio campo (ver TextInput acima) — aqui só sobra a
+            // autoavaliação, depois de revelada. Some enquanto o teclado
+            // está aberto (senão flutuaria por cima dele).
+            !respostaInputFocada && respostaModeloRevelada && (
               <>
                 <TouchableOpacity
                   style={[styles.autoavaliacaoButton, { flex: 1, borderColor: semantic.danger }]}
@@ -922,6 +977,7 @@ export default function QuizScreen() {
         )}
         </View>
       </View>
+      </KeyboardAvoidingView>
 
      <BottomSheetModal
   ref={bottomSheetModalRef}
@@ -1120,16 +1176,30 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   dissertativaInput: {
-    minHeight: 160,
-    borderRadius: 16,
+    minHeight: DISSERTATIVA_INPUT_ALTURA_MIN,
+    maxHeight: DISSERTATIVA_INPUT_ALTURA_MAX,
+    borderRadius: 28,
     borderWidth: 1.5,
     borderColor: C.outlineVariant,
     backgroundColor: C.surfaceContainerHigh,
-    padding: 16,
+    paddingLeft: 20,
+    paddingRight: 52, // espaço pro botão de envio não cobrir o texto
+    paddingVertical: 18,
     fontFamily: 'Manrope_500Medium',
     fontSize: 15,
     lineHeight: 22,
     color: C.onSurface,
+  },
+  enviarRespostaButton: {
+    position: 'absolute',
+    right: 10,
+    bottom: 10,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: C.primary,
   },
   respostaModeloCard: {
     borderRadius: 16,

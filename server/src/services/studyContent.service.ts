@@ -6,7 +6,7 @@ const NESTED_SELECT = `
   id, nome, emoji,
   sub_temas (
     id, nome,
-    materials ( id, nome_arquivo, mime_type ),
+    materials ( id, nome_arquivo, mime_type, created_at ),
     conceitos (
       id, nome, status, nivel_atual, tag_foco, proxima_revisao, performance,
       perguntas (
@@ -93,6 +93,7 @@ export async function getStudyContent(userId: string): Promise<StudyContentData>
           id: sub.materials.id,
           nome: sub.materials.nome_arquivo,
           tipo: materialTipoFromMime(sub.materials.mime_type),
+          criado_em: sub.materials.created_at,
         },
         conceitos,
       };

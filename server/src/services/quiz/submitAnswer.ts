@@ -31,6 +31,13 @@ function addDaysISO(base: Date, dias: number): string {
 const ELIXIR_POR_NIVEL: Record<1 | 2 | 3 | 4, number> = { 1: 30, 2: 50, 3: 100, 4: 150 };
 const ELIXIR_ERRO = 10;
 
+// Intervalo de revisão pós-domínio: começa em 7 dias e DOBRA a cada acerto
+// seguinte (7 -> 14 -> 28 -> 56 -> 90, onde trava) — é o que faz "dominado"
+// significar "revisado com intervalo cada vez maior", não "nunca mais
+// testado". Ver conceitos.intervalo_dominado (011_dominado_revisao_continua.sql).
+const INTERVALO_DOMINADO_INICIAL = 7;
+const INTERVALO_DOMINADO_TETO = 90;
+
 /** Recompensa em elixir: acerto escala com o nível da pergunta (mais difícil, mais
  *  elixir); erro sempre rende um consolo fixo, pra manter o engajamento mesmo
  *  quando o aluno erra. */
@@ -40,8 +47,14 @@ function calcularElixir(nivel: 1 | 2 | 3 | 4, acertou: boolean): number {
 
 /**
  * updateConceptAfterAnswer (documento de MVP §7): o estado vive no conceito, não
- * na pergunta. Acertou -> sobe nível e agenda +3d (ou vira "dominado" com +7d se
- * já estava no nível 4, a dissertativa). Errou -> mantém nível e agenda +1d.
+ * na pergunta.
+ * - Acertou, ainda não dominado -> sobe nível e agenda +3d (ou vira "dominado"
+ *   com +7d se acabou de acertar o nível 4, a dissertativa).
+ * - Acertou, já dominado -> continua dominado e o intervalo DOBRA (até um teto
+ *   de 90d) — revisão de verdade em intervalo crescente, não "some para sempre".
+ * - Errou, não estava dominado -> mantém nível e agenda +1d.
+ * - Errou, estava dominado -> "lapso": volta pra em_reforco com +1d e reseta
+ *   o intervalo, igual o Anki trata esquecer algo que já tinha sido aprendido.
  */
 export async function submitAnswer({
   userId,
@@ -55,7 +68,7 @@ export async function submitAnswer({
       `
       id, resposta, nivel,
       conceitos!inner (
-        id, nivel_atual, status, performance,
+        id, nivel_atual, status, performance, intervalo_dominado,
         sub_temas!inner ( macro_temas!inner ( user_id ) )
       )
     `
@@ -96,18 +109,38 @@ export async function submitAnswer({
   let novoNivel: 1 | 2 | 3 | 4 = conceito.nivel_atual;
   let novoStatus: string;
   let proximaRevisao: string;
+  let novoIntervaloDominado: number | null = conceito.intervalo_dominado ?? null;
 
   if (acertou) {
-    if (conceito.nivel_atual >= 4) {
+    if (conceito.status === "dominado") {
+      // Já estava dominado e acertou de novo: dobra o intervalo em vez de
+      // repetir sempre os mesmos 7 dias — é o que faz virar "espaçado" de
+      // verdade em vez de "testa uma vez e some para sempre".
+      novoIntervaloDominado = Math.min(
+        (conceito.intervalo_dominado ?? INTERVALO_DOMINADO_INICIAL) * 2,
+        INTERVALO_DOMINADO_TETO
+      );
       novoStatus = "dominado";
-      proximaRevisao = addDaysISO(hoje, 7);
+      proximaRevisao = addDaysISO(hoje, novoIntervaloDominado);
+    } else if (conceito.nivel_atual >= 4) {
+      // Primeira vez acertando o nível 4 — passa a "dominado" agora.
+      novoIntervaloDominado = INTERVALO_DOMINADO_INICIAL;
+      novoStatus = "dominado";
+      proximaRevisao = addDaysISO(hoje, novoIntervaloDominado);
     } else {
       novoNivel = (conceito.nivel_atual + 1) as 1 | 2 | 3 | 4;
       novoStatus = "em_reforco";
       proximaRevisao = addDaysISO(hoje, 3);
     }
+  } else if (conceito.status === "dominado") {
+    // Esqueceu um conceito que já tinha dominado — "lapso" (mesmo termo do
+    // Anki): volta pra reforço com intervalo curto, em vez de continuar
+    // marcado como dominado sem ninguém perceber que ele já não sabe mais.
+    novoStatus = "em_reforco";
+    novoIntervaloDominado = null;
+    proximaRevisao = addDaysISO(hoje, 1);
   } else {
-    novoStatus = conceito.status === "dominado" ? "dominado" : "em_reforco";
+    novoStatus = "em_reforco";
     proximaRevisao = addDaysISO(hoje, 1);
   }
 
@@ -118,6 +151,7 @@ export async function submitAnswer({
       status: novoStatus,
       proxima_revisao: proximaRevisao,
       performance: novaPerformance,
+      intervalo_dominado: novoIntervaloDominado,
     })
     .eq("id", conceito.id);
 

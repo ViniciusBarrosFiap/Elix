@@ -56,9 +56,12 @@ function calculateConceptPriority(conceito: ConceitoRow, hoje: Date): number {
 }
 
 /**
- * Monta a dose diária: busca conceitos com revisão vencida (e ainda não dominados),
- * calcula a prioridade de cada um e retorna a pergunta do nível atual dos mais
- * prioritários. Não escolhe perguntas soltas — escolhe conceitos (ver documentação).
+ * Monta a dose diária: busca TODO conceito com revisão vencida, dominado ou
+ * não — dominado continua sendo revisado em intervalo crescente (ver
+ * submitAnswer.ts), só que sempre com a pergunta do nível 4 (nivel_atual não
+ * sobe além disso). Calcula a prioridade de cada um e retorna a pergunta do
+ * nível atual dos mais prioritários. Não escolhe perguntas soltas — escolhe
+ * conceitos (ver documentação).
  */
 export async function selectTodayQuestions(
   userId: string,
@@ -82,7 +85,6 @@ export async function selectTodayQuestions(
     )
     .eq("sub_temas.macro_temas.user_id", userId)
     .eq("sub_temas.macro_temas.ativo", true)
-    .neq("status", "dominado")
     .lte("proxima_revisao", hojeISO);
 
   // Revisão sob demanda de uma disciplina específica (tela de detalhe) — mesma

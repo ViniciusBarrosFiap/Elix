@@ -5,6 +5,7 @@ import {
   ChevronRight,
   FlaskConical,
   FolderPlus,
+  History,
   Home,
   Link2,
   ListChecks,
@@ -177,6 +178,16 @@ export default function TestesScreen() {
             </Text>
           </TouchableOpacity>
         )}
+
+        <Section title="Análise de geração">
+          <Row
+            icon={<History size={18} color={PRIMARY_LIGHT} />}
+            label="Últimos uploads"
+            description="Estrutura real (subtema → conceito → pergunta) gerada pela IA, pra revisar a saída"
+            onPress={() => irPara("/testesUploads")}
+            isLast
+          />
+        </Section>
 
         <Section title="Onboarding e cadastro">
           <Row

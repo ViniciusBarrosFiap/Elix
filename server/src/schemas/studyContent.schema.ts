@@ -121,6 +121,7 @@ export interface SubTemaMaterial {
   id: string;
   nome: string; // nome do arquivo, URL do vídeo ou título da página
   tipo: MaterialTipo;
+  criado_em: string; // quando o upload foi feito — usado pra ordenar "últimos uploads" (tela de Testes)
 }
 
 export interface SubTema {

@@ -173,7 +173,7 @@ export function mockStudyContent(): StudyContentData {
         id: "mock-subtema-1",
         nome: "Membrana Plasmática",
         status: "em_reforco",
-        material: { id: "mock-material-1", nome: "aula_membrana.pdf", tipo: "documento" },
+        material: { id: "mock-material-1", nome: "aula_membrana.pdf", tipo: "documento", criado_em: hojeISO() },
         conceitos: [
           {
             id: "mock-conceito-novo",
@@ -211,7 +211,7 @@ export function mockStudyContent(): StudyContentData {
         id: "mock-subtema-2",
         nome: "Núcleo e Material Genético",
         status: "consolidando",
-        material: { id: "mock-material-2", nome: "https://youtube.com/watch?v=mock", tipo: "youtube" },
+        material: { id: "mock-material-2", nome: "https://youtube.com/watch?v=mock", tipo: "youtube", criado_em: hojeISO(-1) },
         conceitos: [
           {
             id: "mock-conceito-dominado",
