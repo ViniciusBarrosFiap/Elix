@@ -3,6 +3,7 @@ import { notionClient } from "../../config/notion";
 import { env } from "../../config/env";
 import { HttpError } from "../../middlewares/errorHandler";
 import { criarState } from "./oauthState";
+import { fetchNotionPageText } from "../ingestion/fetchNotionPageText";
 
 const NOTION_AUTHORIZE_URL = "https://api.notion.com/v1/oauth/authorize";
 
@@ -171,4 +172,16 @@ export async function listPages(userId: string): Promise<NotionPageSummary[]> {
       url: page.url,
       last_edited_time: page.last_edited_time,
     }));
+}
+
+/**
+ * Lê o conteúdo (em markdown) de uma página do Notion — usado tanto pra
+ * pré-visualizar antes de confirmar o upload (o app já tem o pageId da
+ * listagem) quanto pra reler depois, a partir de um material já salvo (ver
+ * getMaterialNotionContent em materials.service.ts, que resolve o pageId a
+ * partir do material e chama esta mesma função).
+ */
+export async function getPageContent(userId: string, pageId: string): Promise<string> {
+  const accessToken = await getAccessToken(userId);
+  return fetchNotionPageText(accessToken, pageId);
 }

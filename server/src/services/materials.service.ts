@@ -177,6 +177,7 @@ export async function processNotionPage({
       macro_tema_id: macroTemaId,
       nome_arquivo: pageTitle || "Página do Notion",
       mime_type: "application/vnd.notion.page",
+      notion_page_id: pageId, // pra dar pra reler o conteúdo depois (ver getMaterialNotionContent)
       tags,
       status: "processando",
     })
@@ -208,8 +209,8 @@ export interface MaterialViewUrl {
 /**
  * Resolve como o usuário pode ver o material original a partir da tela da
  * disciplina: link direto pro YouTube, uma URL assinada e temporária do
- * Supabase Storage pro documento enviado, ou nada pro Notion (a página só é
- * acessível através da própria integração OAuth, não por um link direto).
+ * Supabase Storage pro documento enviado, ou nada pro Notion (não tem link
+ * direto de arquivo — o conteúdo é lido à parte, ver getMaterialNotionContent).
  */
 export async function getMaterialViewUrl(materialId: string, userId: string): Promise<MaterialViewUrl> {
   const { data: material, error } = await supabase
@@ -246,6 +247,31 @@ export async function getMaterialViewUrl(materialId: string, userId: string): Pr
   }
 
   return { tipo: "documento", url: signed.signedUrl };
+}
+
+/**
+ * Relê o conteúdo (markdown) de um material que já foi importado do Notion —
+ * usa o notion_page_id salvo no upload (ver processNotionPage) pra buscar a
+ * página de novo, na hora, em vez de guardar uma cópia do texto no banco.
+ */
+export async function getMaterialNotionContent(materialId: string, userId: string): Promise<string> {
+  const { data: material, error } = await supabase
+    .from("materials")
+    .select("mime_type, notion_page_id")
+    .eq("id", materialId)
+    .eq("user_id", userId)
+    .single();
+
+  if (error || !material) {
+    throw new HttpError(404, "Material não encontrado.");
+  }
+
+  if (material.mime_type !== "application/vnd.notion.page" || !material.notion_page_id) {
+    throw new HttpError(400, "Esse material não veio do Notion.");
+  }
+
+  const accessToken = await getNotionAccessToken(userId);
+  return fetchNotionPageText(accessToken, material.notion_page_id as string);
 }
 
 export async function processYoutubeLink({

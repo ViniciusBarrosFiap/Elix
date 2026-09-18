@@ -1,10 +1,12 @@
 import { Request, Response } from "express";
 import { env } from "../config/env";
+import { HttpError } from "../middlewares/errorHandler";
 import {
   buildAuthorizationUrl,
   completeOAuth,
   disconnect,
   getConnectionStatus,
+  getPageContent,
   listPages,
 } from "../services/notion/notion.service";
 import { consumirState } from "../services/notion/oauthState";
@@ -84,4 +86,16 @@ export async function deleteConnection(req: Request, res: Response) {
 export async function getPages(req: Request, res: Response) {
   const pages = await listPages(req.user!.id);
   return res.status(200).json({ pages });
+}
+
+// GET /api/notion/pages/:pageId/content — pré-visualização antes de
+// confirmar o upload, a partir do pageId já disponível na listagem.
+export async function getPageContentHandler(req: Request, res: Response) {
+  const pageId = req.params.pageId;
+  if (!pageId) {
+    throw new HttpError(400, "Informe o pageId.");
+  }
+
+  const markdown = await getPageContent(req.user!.id, pageId);
+  return res.status(200).json({ markdown });
 }

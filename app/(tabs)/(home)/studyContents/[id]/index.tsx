@@ -1,5 +1,6 @@
 import {
   ArrowLeft,
+  BookOpen,
   ChevronRight,
   Clock,
   ExternalLink,
@@ -28,6 +29,8 @@ import { useUserDataStore } from "@/src/store/userDataStore";
 import { UserService } from "@/src/services/user/user.service";
 import { STATUS_LABEL, StatusConceito } from "@/src/types/studyContent";
 import { useAbrirMaterial } from "@/src/features/studyContent/useAbrirMaterial";
+import { useLerConteudoNotion } from "@/src/features/studyContent/useLerConteudoNotion";
+import { MarkdownContentModal } from "@/src/components/MarkdownContentModal";
 import { SubtemaRow } from "@/src/features/studyContent/SubtemaRow";
 import {
   MATERIAL_TIPO_ICON,
@@ -60,6 +63,14 @@ export default function DisciplinaDetalhe() {
   const macroTema = studyContentData?.macrotemas.find((m) => m.id === id);
 
   const { abrirMaterial, abrindoId } = useAbrirMaterial();
+  const {
+    materialAberto: notionMaterialAberto,
+    markdown: notionMarkdown,
+    carregando: carregandoNotion,
+    erro: erroNotion,
+    lerConteudo: lerConteudoNotion,
+    fechar: fecharConteudoNotion,
+  } = useLerConteudoNotion();
 
   // Bottom sheet com os subtemas/conceitos do material tocado — em vez de
   // navegar pra uma tela própria, guarda só o id do material selecionado e
@@ -241,7 +252,7 @@ export default function DisciplinaDetalhe() {
   const renderMaterial = (resumo: ResumoMaterial) => {
     const { material, totalVencidos, totalAtrasados, dominio } = resumo;
     const MaterialIcon = MATERIAL_TIPO_ICON[material.tipo];
-    const podeAbrir = material.tipo !== "notion";
+    const ehNotion = material.tipo === "notion";
     const abrindo = abrindoId === material.id;
 
     // Anel de progresso ao redor do ícone — deixa o quanto já foi consolidado
@@ -308,33 +319,35 @@ export default function DisciplinaDetalhe() {
           </View>
         )}
 
-        {podeAbrir && (
-          <>
-            {/* Divisória fina + fundo circular próprio — antes o botão de
-                abrir o link externo ficava só um ícone solto colado no
-                chevron, dentro da mesma linha que abre o bottom sheet. Sem
-                nenhuma fronteira visual entre as duas áreas de toque, era
-                fácil querer abrir o sheet e acabar abrindo o material (ou
-                o contrário). */}
-            <View style={{ width: 1, height: 22, backgroundColor: "rgba(255,255,255,0.08)", marginRight: 8 }} />
-            <Pressable
-              onPress={(e) => {
-                e.stopPropagation();
-                abrirMaterial(material);
-              }}
-              disabled={abrindo}
-              className="items-center justify-center rounded-full active:opacity-60"
-              hitSlop={6}
-              style={{ width: 32, height: 32, backgroundColor: "rgba(255,255,255,0.05)" }}
-            >
-              {abrindo ? (
-                <ActivityIndicator size="small" color={PRIMARY_LIGHT} />
-              ) : (
-                <ExternalLink size={16} color={PRIMARY_LIGHT} />
-              )}
-            </Pressable>
-          </>
-        )}
+        {/* Divisória fina + fundo circular próprio — antes o botão de
+            abrir o link externo ficava só um ícone solto colado no
+            chevron, dentro da mesma linha que abre o bottom sheet. Sem
+            nenhuma fronteira visual entre as duas áreas de toque, era
+            fácil querer abrir o sheet e acabar abrindo o material (ou
+            o contrário). */}
+        <View style={{ width: 1, height: 22, backgroundColor: "rgba(255,255,255,0.08)", marginRight: 8 }} />
+        <Pressable
+          onPress={(e) => {
+            e.stopPropagation();
+            if (ehNotion) {
+              lerConteudoNotion({ id: material.id, nome: material.nome });
+            } else {
+              abrirMaterial(material);
+            }
+          }}
+          disabled={abrindo}
+          className="items-center justify-center rounded-full active:opacity-60"
+          hitSlop={6}
+          style={{ width: 32, height: 32, backgroundColor: "rgba(255,255,255,0.05)" }}
+        >
+          {abrindo ? (
+            <ActivityIndicator size="small" color={PRIMARY_LIGHT} />
+          ) : ehNotion ? (
+            <BookOpen size={16} color={PRIMARY_LIGHT} />
+          ) : (
+            <ExternalLink size={16} color={PRIMARY_LIGHT} />
+          )}
+        </Pressable>
 
         <ChevronRight size={18} color="rgba(255,255,255,0.25)" />
       </Pressable>
@@ -728,21 +741,25 @@ export default function DisciplinaDetalhe() {
                   </Text>
                 </View>
 
-                {materialSelecionado.tipo !== "notion" && (
-                  <Pressable
-                    onPress={() => abrirMaterial(materialSelecionado)}
-                    disabled={abrindoId === materialSelecionado.id}
-                    className="items-center justify-center active:opacity-60"
-                    hitSlop={8}
-                    style={{ width: 34, height: 34 }}
-                  >
-                    {abrindoId === materialSelecionado.id ? (
-                      <ActivityIndicator size="small" color={PRIMARY_LIGHT} />
-                    ) : (
-                      <ExternalLink size={18} color={PRIMARY_LIGHT} />
-                    )}
-                  </Pressable>
-                )}
+                <Pressable
+                  onPress={() =>
+                    materialSelecionado.tipo === "notion"
+                      ? lerConteudoNotion({ id: materialSelecionado.id, nome: materialSelecionado.nome })
+                      : abrirMaterial(materialSelecionado)
+                  }
+                  disabled={abrindoId === materialSelecionado.id}
+                  className="items-center justify-center active:opacity-60"
+                  hitSlop={8}
+                  style={{ width: 34, height: 34 }}
+                >
+                  {abrindoId === materialSelecionado.id ? (
+                    <ActivityIndicator size="small" color={PRIMARY_LIGHT} />
+                  ) : materialSelecionado.tipo === "notion" ? (
+                    <BookOpen size={18} color={PRIMARY_LIGHT} />
+                  ) : (
+                    <ExternalLink size={18} color={PRIMARY_LIGHT} />
+                  )}
+                </Pressable>
               </View>
 
               {subtemasDoMaterialSelecionado.length > 1 && (
@@ -778,6 +795,15 @@ export default function DisciplinaDetalhe() {
           )}
         </BottomSheetScrollView>
       </BottomSheetModal>
+
+      <MarkdownContentModal
+        visible={!!notionMaterialAberto}
+        onClose={fecharConteudoNotion}
+        titulo={notionMaterialAberto?.nome ?? ''}
+        carregando={carregandoNotion}
+        erro={erroNotion}
+        markdown={notionMarkdown}
+      />
     </SafeAreaView>
   );
 }

@@ -44,6 +44,7 @@ import { MacroTemaListItem } from '@/src/services/studyContent/studyContent.repo
 import { MaterialsService } from '@/src/services/materials/materials.service';
 import { NotionService, NotionPage } from '@/src/services/notion/notion.service';
 import { colors, semantic } from '@/src/theme/colors';
+import { MarkdownContentModal } from '@/src/components/MarkdownContentModal';
 
 type TagItem = {
   id: string;
@@ -96,6 +97,13 @@ export default function AddContent() {
   const [notionPages, setNotionPages] = useState<NotionPage[]>([]);
   const [isLoadingNotionPages, setIsLoadingNotionPages] = useState(false);
   const [isConnectingNotion, setIsConnectingNotion] = useState(false);
+
+  // Pré-visualização do conteúdo antes de confirmar a página — toca numa
+  // página da lista pra ler o texto (markdown) antes de decidir usá-la.
+  const [notionPreviewPage, setNotionPreviewPage] = useState<NotionPage | null>(null);
+  const [notionPreviewMarkdown, setNotionPreviewMarkdown] = useState<string | null>(null);
+  const [isLoadingNotionPreview, setIsLoadingNotionPreview] = useState(false);
+  const [notionPreviewError, setNotionPreviewError] = useState<string | null>(null);
 
   const [newTagText, setNewTagText] = useState('');
   const [isAddingTag, setIsAddingTag] = useState(false);
@@ -243,6 +251,43 @@ export default function AddContent() {
     ]);
     setNotionPage({ id: page.id, title: page.title });
     setIsNotionPickerOpen(false);
+  };
+
+  // Toca numa página da lista -> lê o conteúdo antes de decidir usá-la. A
+  // confirmação de verdade (handleSelectNotionPage) só acontece se o aluno
+  // tocar em "Usar esta página" depois de ver o texto.
+  const abrirPreviewNotion = async (page: NotionPage) => {
+    // Fecha o picker ANTES de abrir a prévia — dois <Modal> do RN visíveis ao
+    // mesmo tempo prendia a tela (nem o botão de fechar respondia mais).
+    setIsNotionPickerOpen(false);
+    setNotionPreviewPage(page);
+    setNotionPreviewMarkdown(null);
+    setNotionPreviewError(null);
+    setIsLoadingNotionPreview(true);
+    try {
+      const markdown = await NotionService.getPageContent(page.id);
+      setNotionPreviewMarkdown(markdown);
+    } catch (error) {
+      const mensagem = error instanceof Error ? error.message : 'Não foi possível ler essa página agora.';
+      setNotionPreviewError(mensagem);
+    } finally {
+      setIsLoadingNotionPreview(false);
+    }
+  };
+
+  // Fechar a prévia (botão "X") volta pra lista, como um "voltar" — reabre o
+  // picker em vez de largar o aluno de volta na tela toda de novo.
+  const fecharPreviewNotion = () => {
+    setNotionPreviewPage(null);
+    setIsNotionPickerOpen(true);
+  };
+
+  const confirmarPaginaDoPreview = () => {
+    if (!notionPreviewPage) return;
+    handleSelectNotionPage(notionPreviewPage);
+    // Fecha só a prévia — NÃO reabre o picker (diferente de fecharPreviewNotion),
+    // já que a seleção está completa.
+    setNotionPreviewPage(null);
   };
 
   const handleAddTag = () => {
@@ -872,13 +917,14 @@ export default function AddContent() {
                   style={{ maxHeight: 360 }}
                   renderItem={({ item }) => (
                     <Pressable
-                      onPress={() => handleSelectNotionPage(item)}
+                      onPress={() => abrirPreviewNotion(item)}
                       className="flex-row items-center px-6 py-4 border-b border-white/5 active:bg-white/5"
                     >
                       <Text className="text-lg mr-3">{item.icon ?? '📄'}</Text>
                       <Text className="text-white text-base flex-1" numberOfLines={1}>
                         {item.title}
                       </Text>
+                      <Text className="text-xs text-muted">Ler</Text>
                     </Pressable>
                   )}
                 />
@@ -907,6 +953,35 @@ export default function AddContent() {
             </View>
           </Pressable>
         </Modal>
+
+        <MarkdownContentModal
+          visible={!!notionPreviewPage}
+          onClose={fecharPreviewNotion}
+          titulo={notionPreviewPage?.title ?? ''}
+          carregando={isLoadingNotionPreview}
+          erro={notionPreviewError}
+          markdown={notionPreviewMarkdown}
+          footer={
+            <View style={{ paddingHorizontal: 20, paddingBottom: 16, paddingTop: 8 }}>
+              <TouchableOpacity
+                onPress={confirmarPaginaDoPreview}
+                disabled={isLoadingNotionPreview || !!notionPreviewError}
+                activeOpacity={0.85}
+                style={{
+                  opacity: isLoadingNotionPreview || !!notionPreviewError ? 0.5 : 1,
+                  backgroundColor: colors.primaryContainer,
+                  borderRadius: 999,
+                  paddingVertical: 16,
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{ fontFamily: 'Manrope_700Bold', fontSize: 15, color: colors.onPrimaryContainer }}>
+                  Usar esta página
+                </Text>
+              </TouchableOpacity>
+            </View>
+          }
+        />
 
            </View>
       </ScrollView>

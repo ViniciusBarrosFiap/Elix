@@ -3,6 +3,7 @@ import { deviceAuth } from "../middlewares/deviceAuth";
 import {
   deleteConnection,
   getAuthUrl,
+  getPageContentHandler,
   getPages,
   getStatus,
   oauthCallback,
@@ -18,3 +19,4 @@ notionRouter.get("/auth-url", deviceAuth, getAuthUrl);
 notionRouter.get("/status", deviceAuth, getStatus);
 notionRouter.delete("/connection", deviceAuth, deleteConnection);
 notionRouter.get("/pages", deviceAuth, getPages);
+notionRouter.get("/pages/:pageId/content", deviceAuth, getPageContentHandler);

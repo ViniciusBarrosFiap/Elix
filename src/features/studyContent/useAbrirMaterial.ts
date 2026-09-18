@@ -8,7 +8,8 @@ import { SubTemaMaterial } from "@/src/types/studyContent";
  * hora) pro documento enviado — sempre resolvido pelo backend, já que
  * `material.nome` agora é o título de exibição, não a URL (ver
  * getMaterialViewUrl em materials.service.ts). Notion não tem link direto —
- * quem chama decide se mostra o botão (ver material.tipo !== "notion").
+ * usa useLerConteudoNotion.ts em vez deste hook (quem chama decide com base
+ * em material.tipo === "notion").
  */
 export function useAbrirMaterial() {
   const [abrindoId, setAbrindoId] = useState<string | null>(null);

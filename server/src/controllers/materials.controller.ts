@@ -5,6 +5,7 @@ import {
   processYoutubeLink,
   processNotionPage,
   getMaterialViewUrl,
+  getMaterialNotionContent,
 } from "../services/materials.service";
 
 function parseTags(raw: unknown): string[] {
@@ -112,4 +113,11 @@ export async function uploadNotionMaterial(req: Request, res: Response) {
 export async function getMaterialViewUrlHandler(req: Request, res: Response) {
   const result = await getMaterialViewUrl(req.params.id, req.user!.id);
   return res.status(200).json(result);
+}
+
+// GET /api/materials/:id/notion-content — relê o conteúdo de um material
+// que veio do Notion (só existe pra materiais com notion_page_id salvo).
+export async function getMaterialNotionContentHandler(req: Request, res: Response) {
+  const markdown = await getMaterialNotionContent(req.params.id, req.user!.id);
+  return res.status(200).json({ markdown });
 }

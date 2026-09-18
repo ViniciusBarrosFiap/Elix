@@ -6,6 +6,7 @@ import {
   uploadYoutubeMaterial,
   uploadNotionMaterial,
   getMaterialViewUrlHandler,
+  getMaterialNotionContentHandler,
 } from "../controllers/materials.controller";
 import { env } from "../config/env";
 
@@ -20,3 +21,4 @@ materialsRouter.post("/", deviceAuth, upload.single("file"), uploadMaterial);
 materialsRouter.post("/youtube", deviceAuth, uploadYoutubeMaterial);
 materialsRouter.post("/notion", deviceAuth, uploadNotionMaterial);
 materialsRouter.get("/:id/view-url", deviceAuth, getMaterialViewUrlHandler);
+materialsRouter.get("/:id/notion-content", deviceAuth, getMaterialNotionContentHandler);

@@ -31,6 +31,13 @@ export const NotionRepository = {
     return pages;
   },
 
+  async getPageContent(pageId: string): Promise<string> {
+    const { markdown } = await apiFetch<{ markdown: string }>(
+      `/api/notion/pages/${encodeURIComponent(pageId)}/content`
+    );
+    return markdown;
+  },
+
   async disconnect(): Promise<void> {
     await apiFetch<void>("/api/notion/connection", { method: "DELETE" });
   },

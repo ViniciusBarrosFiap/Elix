@@ -71,4 +71,11 @@ export const MaterialsRepository = {
       method: "GET",
     });
   },
+
+  async getNotionContent(materialId: string): Promise<string> {
+    const { markdown } = await apiFetch<{ markdown: string }>(`/api/materials/${materialId}/notion-content`, {
+      method: "GET",
+    });
+    return markdown;
+  },
 };

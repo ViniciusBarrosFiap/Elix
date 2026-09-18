@@ -13,6 +13,10 @@ export const NotionService = {
     return NotionRepository.getPages();
   },
 
+  async getPageContent(pageId: string): Promise<string> {
+    return NotionRepository.getPageContent(pageId);
+  },
+
   async disconnect(): Promise<void> {
     return NotionRepository.disconnect();
   },
