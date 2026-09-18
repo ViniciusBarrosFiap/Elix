@@ -257,9 +257,7 @@ function ConceitoQA({ conceito }: { conceito: Conceito }) {
                     <Text className="text-[10px] font-bold mb-1" style={{ color: semantic.success }}>
                       RESPOSTA MODELO
                     </Text>
-                    <Text className="text-[11px]" style={{ color: "rgba(255,255,255,0.8)" }}>
-                      {pergunta.resposta_modelo}
-                    </Text>
+                    <Markdown style={qaMarkdownStyles}>{pergunta.resposta_modelo ?? ''}</Markdown>
                   </View>
                 )}
 

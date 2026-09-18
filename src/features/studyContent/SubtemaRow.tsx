@@ -4,6 +4,7 @@ import { Check, ChevronDown, Clock, Crown, Star, Zap } from "lucide-react-native
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import Svg, { Circle } from "react-native-svg";
+import Markdown from "react-native-markdown-display";
 import { Conceito, SubTema } from "@/src/types/studyContent";
 import {
   COR_ATRASADO,
@@ -30,6 +31,15 @@ const NO_SIZE = 44;
 const NO_STROKE = 3;
 const NO_RADIUS = (NO_SIZE - NO_STROKE) / 2;
 const NO_CIRCUNFERENCIA = 2 * Math.PI * NO_RADIUS;
+
+// Estilos do markdown de resposta_modelo/explicacao no detalhe do conceito —
+// mesma cor/tamanho que o <Text> puro usava antes, só que agora interpreta
+// negrito/listas em vez de mostrar os símbolos literais.
+const conceitoMarkdownStyles = {
+  body: { fontSize: 12, lineHeight: 17, color: MUTED },
+  paragraph: { marginTop: 0, marginBottom: 6 },
+  strong: { fontWeight: "700" as const, color: "rgba(255,255,255,0.85)" },
+};
 
 function NoConceito({
   cor,
@@ -302,15 +312,13 @@ function ConceitoDetalheSheet({
                         >
                           Resposta modelo
                         </Text>
-                        <Text className="text-xs" style={{ color: "rgba(255,255,255,0.85)", lineHeight: 18 }}>
-                          {pergunta.resposta_modelo}
-                        </Text>
+                        <Markdown style={conceitoMarkdownStyles}>{pergunta.resposta_modelo ?? ''}</Markdown>
                       </View>
                     )}
 
-                    <Text className="text-xs mt-3" style={{ color: MUTED, lineHeight: 17 }}>
-                      {pergunta.explicacao}
-                    </Text>
+                    <View style={{ marginTop: 12 }}>
+                      <Markdown style={conceitoMarkdownStyles}>{pergunta.explicacao}</Markdown>
+                    </View>
                   </View>
                 ))}
             </View>

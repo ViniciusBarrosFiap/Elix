@@ -1,17 +1,13 @@
 import {
   ArrowLeft,
   Bell,
-  BookOpen,
   ChevronRight,
   FlaskConical,
-  FolderPlus,
   History,
   Home,
-  Link2,
   ListChecks,
   LogIn,
   Sparkles,
-  Trophy,
   UserPlus,
 } from "lucide-react-native";
 import { router } from "expo-router";
@@ -27,7 +23,7 @@ import { useQuizQuestionsStore } from "@/src/store/quizQuestionsStore";
 import { useQuizSessionStore } from "@/src/store/quizSessionStore";
 import { colors, semantic, surfaceDim } from "@/src/theme/colors";
 import { ativarDevTestMode, desativarDevTestMode } from "@/src/dev/devTestMode";
-import { mockQuizQuestions, mockStudyContent, mockUserData } from "@/src/dev/mockData";
+import { mockQuizQuestions, mockUserData } from "@/src/dev/mockData";
 
 const PRIMARY = colors.primaryContainer;
 const PRIMARY_LIGHT = colors.primary;
@@ -35,16 +31,20 @@ const SURFACE_DIM = surfaceDim.base;
 const SURFACE_CARD = surfaceDim.subtema;
 const MUTED = semantic.muted;
 
-function ativarComMock(fezUpload: boolean) {
+// Home vazia (userData.fezUpload=false) não dá pra ver normalmente numa
+// conta real já usada — por isso continua aqui. "Home com conteúdo",
+// "Lista de disciplinas", "Detalhe de disciplina", "Adicionar conteúdo",
+// "Editar disciplinas" e "Conectar Notion" saíram: são todas telas que já
+// dá pra abrir de verdade, sem mock, só usando o app normalmente.
+function ativarHomeVaziaMock() {
   ativarDevTestMode();
-  useUserDataStore.getState().setData(mockUserData({ fezUpload }));
-  if (fezUpload) {
-    useStudyContentStore.getState().setData(mockStudyContent());
-  } else {
-    useStudyContentStore.getState().reset();
-  }
+  useUserDataStore.getState().setData(mockUserData({ fezUpload: false }));
+  useStudyContentStore.getState().reset();
 }
 
+// Responder um quiz com pergunta de nível 4 (dissertativa) de verdade
+// exigiria acertar os níveis 1-3 primeiro, o que leva dias por causa do
+// intervalo da repetição espaçada — por isso o quiz continua mockado aqui.
 function ativarQuizMock() {
   ativarDevTestMode();
   useUserDataStore.getState().setData(mockUserData());
@@ -52,12 +52,6 @@ function ativarQuizMock() {
   // Zera o "trava por hoje" da sessão — sem isso, testar o quiz mais de uma
   // vez no mesmo dia manteria o progresso (acertos/elixir) do teste anterior.
   useQuizSessionStore.setState({ data: "", totalSessao: 0, elixirMaximo: 0, acertos: 0, erros: 0, elixirTotal: 0 });
-}
-
-function ativarStudyContentMock() {
-  ativarDevTestMode();
-  useUserDataStore.getState().setData(mockUserData());
-  useStudyContentStore.getState().setData(mockStudyContent());
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -161,8 +155,8 @@ export default function TestesScreen() {
             <FlaskConical size={26} color={PRIMARY_LIGHT} />
           </View>
           <Text className="text-white text-sm text-center" style={{ maxWidth: 300, color: MUTED }}>
-            Atalhos só pra desenvolvimento: abre qualquer tela já com dados de exemplo, sem precisar subir material
-            nem esperar a IA gerar nada.
+            Só o que não dá pra ver navegando normalmente pelo app — telas de onboarding já feito, estados vazios e
+            cenários difíceis de alcançar de verdade (como o nível 4 do quiz).
           </Text>
         </View>
 
@@ -227,20 +221,10 @@ export default function TestesScreen() {
         <Section title="Home">
           <Row
             icon={<Home size={18} color={PRIMARY_LIGHT} />}
-            label="Home com conteúdo"
-            description="Dose do dia + disciplinas de exemplo"
-            onPress={() => {
-              ativarComMock(true);
-              marcarAtivo();
-              irPara("/(tabs)/home");
-            }}
-          />
-          <Row
-            icon={<Home size={18} color={PRIMARY_LIGHT} />}
             label="Home vazia (sem upload)"
-            description="Estado de 'vamos começar'"
+            description="Estado de 'vamos começar' — não dá pra ver numa conta que já usou o app"
             onPress={() => {
-              ativarComMock(false);
+              ativarHomeVaziaMock();
               marcarAtivo();
               irPara("/(tabs)/home");
             }}
@@ -258,54 +242,8 @@ export default function TestesScreen() {
               marcarAtivo();
               irPara("/(tabs)/quiz");
             }}
-          />
-          <Row
-            icon={<Trophy size={18} color={PRIMARY_LIGHT} />}
-            label="Tela de resultado"
-            onPress={() => irPara("/(tabs)/quiz/result")}
             isLast
           />
-        </Section>
-
-        <Section title="Conteúdo de estudo">
-          <Row
-            icon={<BookOpen size={18} color={PRIMARY_LIGHT} />}
-            label="Lista de disciplinas"
-            onPress={() => {
-              ativarStudyContentMock();
-              marcarAtivo();
-              irPara("/(tabs)/studyContents");
-            }}
-          />
-          <Row
-            icon={<BookOpen size={18} color={PRIMARY_LIGHT} />}
-            label="Detalhe de uma disciplina"
-            description="Subtemas, conceitos em todos os status e materiais"
-            onPress={() => {
-              ativarStudyContentMock();
-              marcarAtivo();
-              irPara(`/(tabs)/studyContents/${mockStudyContent().macrotemas[0].id}`);
-            }}
-          />
-          <Row
-            icon={<FolderPlus size={18} color={PRIMARY_LIGHT} />}
-            label="Adicionar conteúdo"
-            onPress={() => irPara("/(tabs)/studyContents/addContent")}
-          />
-          <Row
-            icon={<ListChecks size={18} color={PRIMARY_LIGHT} />}
-            label="Editar disciplinas"
-            onPress={() => {
-              ativarStudyContentMock();
-              marcarAtivo();
-              irPara("/editDisciplinas");
-            }}
-            isLast
-          />
-        </Section>
-
-        <Section title="Integrações">
-          <Row icon={<Link2 size={18} color={PRIMARY_LIGHT} />} label="Conectar Notion" onPress={() => irPara("/connectNotion")} isLast />
         </Section>
       </ScrollView>
     </SafeAreaView>

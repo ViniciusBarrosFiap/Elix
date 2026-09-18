@@ -526,10 +526,10 @@ export default function QuizScreen() {
     registrarResposta(acertouAgora, ganho);
     flaskRef.current?.gain(ganho, `+${ganho} XP`);
 
-    if (!acertouAgora) {
-      bottomSheetModalRef.current?.present();
-      iniciarCooldownJustificativa();
-    }
+    // Sem bottom sheet de justificativa aqui: o aluno já viu a resposta_modelo
+    // (e a explicação, ver bloco de UI da dissertativa) antes de se
+    // autoavaliar — reabrir tudo de novo num sheet seria repetir o que ele
+    // acabou de ler.
 
     QuizQuestionsService.submitAnswer(
       currentQuestion.id,
@@ -772,9 +772,7 @@ export default function QuizScreen() {
                       Resposta modelo
                     </Text>
                   </View>
-                  <Text style={{ fontFamily: 'Manrope_500Medium', fontSize: 15, lineHeight: 22, color: C.onSurface }}>
-                    {currentQuestion.resposta_modelo}
-                  </Text>
+                  <Markdown style={justificativaMarkdownStyles}>{currentQuestion.resposta_modelo ?? ''}</Markdown>
                 </View>
               )}
             </View>
@@ -965,7 +963,7 @@ export default function QuizScreen() {
             </Text>
           </TouchableOpacity>
         )}
-        {confirmed && (
+        {confirmed && !isDissertativa && (
           <TouchableOpacity
             onPress={() => bottomSheetModalRef.current?.present()}
             activeOpacity={0.8}
