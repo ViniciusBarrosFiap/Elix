@@ -44,6 +44,21 @@ function diasDeAtraso(proximaRevisaoISO: string, hoje: Date): number {
   return Math.max(0, Math.round((hojeUTC - proximaRevisaoUTC) / (1000 * 60 * 60 * 24)));
 }
 
+// Embaralha a ordem de exibição das alternativas (Fisher-Yates) — a posição
+// da correta já varia entre perguntas diferentes (pedido no prompt de
+// geração, ver buildPrompt.ts), mas dentro da MESMA pergunta ela sempre
+// vinha na mesma ordem A/B/C/D toda vez que a dose era buscada. `id` de cada
+// opção continua sendo a letra original, então `id_gabarito` não muda —
+// só a ordem do array embaralha.
+function embaralhar<T>(itens: T[]): T[] {
+  const copia = [...itens];
+  for (let i = copia.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copia[i], copia[j]] = [copia[j], copia[i]];
+  }
+  return copia;
+}
+
 function calculateConceptPriority(conceito: ConceitoRow, hoje: Date): number {
   const diasAtraso = diasDeAtraso(conceito.proxima_revisao, hoje);
 
@@ -135,10 +150,12 @@ export async function selectTodayQuestions(
       ja_errou: conceito.performance.erros > 0,
       nivel: pergunta.nivel,
       opcoes: alternativas
-        ? (["A", "B", "C", "D"] as const).map((letra) => ({
-            id: letra.toLowerCase(),
-            rotulo: alternativas[letra],
-          }))
+        ? embaralhar(
+            (["A", "B", "C", "D"] as const).map((letra) => ({
+              id: letra.toLowerCase(),
+              rotulo: alternativas[letra],
+            }))
+          )
         : [],
       id_gabarito: pergunta.resposta ? pergunta.resposta.toLowerCase() : null,
       resposta_modelo: pergunta.resposta_modelo,
