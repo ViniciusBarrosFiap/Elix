@@ -109,7 +109,7 @@ export default function EditDisciplinasScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-[#000000]" edges={['top', 'bottom']}>
+    <SafeAreaView className="flex-1 bg-surface" edges={['top', 'bottom']}>
       <StatusBar barStyle="light-content" />
 
       <View pointerEvents="none" className="absolute inset-0 opacity-40">

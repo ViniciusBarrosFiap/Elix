@@ -83,7 +83,7 @@ export default function DisciplineSelectionScreen() {
     }
 
     return (
-        <SafeAreaView className="flex-1 bg-[#000000]" edges={['top', 'bottom']}>
+        <SafeAreaView className="flex-1 bg-surface" edges={['top', 'bottom']}>
         <StatusBar barStyle="light-content" />
 
         {/* Ambient violet glow */}
@@ -108,12 +108,10 @@ export default function DisciplineSelectionScreen() {
 
             </View>
 
-            {/* Glass card */}
-            <BlurView
-            intensity={40}
-            tint="dark"
-            className="rounded-3xl overflow-hidden bg-surfaceContainerLow/40 border border-white/10 p-5"
-            >
+            {/* Glass card — transparente de propósito, sem preenchimento de
+                cor: só a borda + o glow violeta ambiente por trás definem o
+                contorno do card. */}
+          
             <Text className="font-medium text-[#ffffff] text-[17px] mb-4">
                 Suas disciplinas
             </Text>
@@ -157,7 +155,7 @@ export default function DisciplineSelectionScreen() {
                 Você pode adicionar mais de uma disciplina.
                 </Text>
             </View>
-            </BlurView>
+            
         </View>
 
         {/* Footer CTA */}
