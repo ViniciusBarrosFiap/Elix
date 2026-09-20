@@ -5,11 +5,12 @@ import {
   Columns2,
   FileText,
   FlaskConical,
+  LogOut,
   Lock,
   RefreshCw,
   RotateCw,
 } from 'lucide-react-native';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -21,8 +22,8 @@ import {
   Image
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { NotionService } from '@/src/services/notion/notion.service';
-import { colors } from '@/src/theme/colors';
+import { NotionService, NotionStatus } from '@/src/services/notion/notion.service';
+import { colors, semantic } from '@/src/theme/colors';
 
 type FeatureItemProps = {
   icon: React.ReactNode;
@@ -57,6 +58,16 @@ function FeatureItem({ icon, title, description, isLast }: FeatureItemProps) {
 
 export default function ConnectNotionScreen() {
   const [isConnecting, setIsConnecting] = useState(false);
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [status, setStatus] = useState<NotionStatus | null>(null);
+
+  // Busca o status assim que a tela abre — é o que decide se mostra
+  // "Conectar" ou "Desconectar" no rodapé.
+  useEffect(() => {
+    NotionService.getStatus()
+      .then(setStatus)
+      .catch(() => setStatus({ connected: false }));
+  }, []);
 
   // Mesmo fluxo do botão "Importar do Notion" em addContent.tsx: só dispara o
   // OAuth se ainda não estiver conectado. Aqui não há seletor de páginas —
@@ -65,9 +76,9 @@ export default function ConnectNotionScreen() {
   const handleConnect = async () => {
     setIsConnecting(true);
     try {
-      const status = await NotionService.getStatus();
+      const statusAtual = await NotionService.getStatus();
 
-      if (!status.connected) {
+      if (!statusAtual.connected) {
         const resultado = await NotionService.connect();
         if (!resultado.ok) {
           if (resultado.reason && resultado.reason !== 'cancelado') {
@@ -84,6 +95,31 @@ export default function ConnectNotionScreen() {
     } finally {
       setIsConnecting(false);
     }
+  };
+
+  const handleDisconnect = () => {
+    Alert.alert(
+      'Desconectar do Notion',
+      'O Elix vai parar de conseguir importar suas páginas do Notion até você conectar de novo. Isso não apaga o conteúdo já importado.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Desconectar',
+          style: 'destructive',
+          onPress: async () => {
+            setIsDisconnecting(true);
+            try {
+              await NotionService.disconnect();
+              setStatus({ connected: false });
+            } catch {
+              Alert.alert('Erro', 'Não foi possível desconectar agora. Tente de novo em instantes.');
+            } finally {
+              setIsDisconnecting(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -216,12 +252,32 @@ export default function ConnectNotionScreen() {
                 <ActivityIndicator color="#ffffff" />
               ) : (
                 <Text className="font-semibold text-[#ffffff] text-[15px]">
-                  Conectar
+                  {status?.connected ? 'Importar conteúdo' : 'Conectar'}
                 </Text>
               )}
             </View>
           </LinearGradient>
         </Pressable>
+
+        {/* Desconectar — só aparece se já houver uma conexão ativa. */}
+        {status?.connected && (
+          <Pressable
+            className="flex-row items-center justify-center mt-4 py-2 active:opacity-70"
+            onPress={handleDisconnect}
+            disabled={isDisconnecting}
+          >
+            {isDisconnecting ? (
+              <ActivityIndicator color={semantic.danger} size="small" />
+            ) : (
+              <>
+                <LogOut size={15} color={semantic.danger} />
+                <Text className="font-semibold text-[13px] ml-2" style={{ color: semantic.danger }}>
+                  Desconectar do Notion
+                </Text>
+              </>
+            )}
+          </Pressable>
+        )}
       </View>
     </SafeAreaView>
   );

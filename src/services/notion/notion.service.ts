@@ -33,7 +33,14 @@ export const NotionService = {
     const redirectUri = Linking.createURL("notion-connected");
     const authUrl = await NotionRepository.getAuthUrl(redirectUri);
 
-    const resultado = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
+    // preferEphemeralSession (iOS): pede uma sessão privada, sem reaproveitar
+    // cookies do Safari — sem isso, o navegador de autenticação sempre volta
+    // logado na mesma conta do Notion, mesmo depois de desconectar por aqui
+    // (desconectar só apaga o token salvo no nosso banco, não desloga o
+    // usuário do notion.com no navegador do aparelho).
+    const resultado = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri, {
+      preferEphemeralSession: true,
+    });
 
     if (resultado.type !== "success" || !resultado.url) {
       return { ok: false, reason: "cancelado" };
