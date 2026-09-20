@@ -130,25 +130,28 @@ function isErroTransitorioDoServico(err: unknown): boolean {
 const TENTATIVAS_SOBRECARGA = 2; // 1ª chamada + 1 retry
 const DELAY_ENTRE_TENTATIVAS_MS = 3000;
 
-async function callOpenAI(prompt: string, schemaName: string, jsonSchema: Record<string, unknown>): Promise<unknown> {
+async function callOpenAI(
+  model: string,
+  prompt: string,
+  schemaName: string,
+  jsonSchema: Record<string, unknown>
+): Promise<unknown> {
   let raw: string | null | undefined;
   let ultimoErro: unknown;
 
   for (let tentativa = 1; tentativa <= TENTATIVAS_SOBRECARGA; tentativa++) {
     try {
       const response = await openai.chat.completions.create({
-        model: env.OPENAI_MODEL,
+        model,
         messages: [{ role: "user", content: prompt }],
         response_format: {
           type: "json_schema",
           json_schema: { name: schemaName, strict: true, schema: jsonSchema },
         },
-        // Modelos "nano" da família gpt-5 fazem raciocínio interno por padrão,
-        // o que custava ~14s por chamada mesmo pra tarefas simples como esta
-        // (testado). "minimal" cortou pra ~2s sem perda de qualidade visível
-        // na tarefa — crítico aqui porque a fase 2 dispara várias chamadas em
-        // paralelo dentro do teto de 60s da função na Vercel.
-        reasoning_effort: "minimal",
+        // gpt-4o / gpt-4o-mini (família usada aqui) não aceitam
+        // reasoning_effort — a OpenAI rejeita com 400 "Unrecognized request
+        // argument" se esse campo for enviado. Só a família gpt-5/o-series
+        // aceita; se algum dia trocar de volta, reintroduzir esse parâmetro.
       });
       raw = response.choices[0]?.message?.content;
       ultimoErro = undefined;
@@ -191,17 +194,18 @@ async function callOpenAI(prompt: string, schemaName: string, jsonSchema: Record
  * na mensagem de erro final, pra quem ler o log saber qual chamada falhou.
  */
 async function callOpenAIValidated<T>(
+  model: string,
   buildPrompt: (correcaoAnterior?: string) => string,
   schemaName: string,
   jsonSchema: Record<string, unknown>,
   zodSchema: z.ZodType<T>,
   errorLabel: string
 ): Promise<T> {
-  const firstRaw = await callOpenAI(buildPrompt(), schemaName, jsonSchema);
+  const firstRaw = await callOpenAI(model, buildPrompt(), schemaName, jsonSchema);
   const firstParsed = zodSchema.safeParse(firstRaw);
   if (firstParsed.success) return firstParsed.data;
 
-  const retryRaw = await callOpenAI(buildPrompt(firstParsed.error.message), schemaName, jsonSchema);
+  const retryRaw = await callOpenAI(model, buildPrompt(firstParsed.error.message), schemaName, jsonSchema);
   const retryParsed = zodSchema.safeParse(retryRaw);
   if (retryParsed.success) return retryParsed.data;
 
@@ -244,6 +248,7 @@ export async function generateStudyContent({
   texto,
 }: GenerateInput): Promise<GeneratedStudyContent> {
   const subtemasList = await callOpenAIValidated(
+    env.OPENAI_MODEL_SUBTEMAS,
     (correcaoAnterior) => buildSubtemasPrompt({ disciplinaNome, tags, texto, correcaoAnterior }),
     "subtemas_list",
     subtemasListResponseSchema,
@@ -254,6 +259,7 @@ export async function generateStudyContent({
   const resultados = await Promise.allSettled(
     subtemasList.subtemas.map((subtema) =>
       callOpenAIValidated(
+        env.OPENAI_MODEL_CONCEITOS,
         (correcaoAnterior) =>
           buildConceitosPrompt({ disciplinaNome, subtemaNome: subtema.nome, tags, texto, correcaoAnterior }),
         "conceitos_do_subtema",

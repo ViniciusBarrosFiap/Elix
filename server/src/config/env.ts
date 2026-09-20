@@ -7,10 +7,14 @@ const envSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
   SUPABASE_STORAGE_BUCKET: z.string().min(1).default("materials"),
   OPENAI_API_KEY: z.string().min(1),
-  // Precisa ser um modelo que aceite reasoning_effort (família gpt-5/o-series)
-  // — generateStudyContent.ts sempre envia esse parâmetro; gpt-4o-mini e
-  // afins são rejeitados pela OpenAI com 400 "Unrecognized request argument".
-  OPENAI_MODEL: z.string().min(1).default("gpt-5-nano"),
+  // Fase 1 (planejador — só decide os NOMES dos subtemas): 1 chamada só,
+  // então usa um modelo mais forte pra pegar um bom recorte do material.
+  OPENAI_MODEL_SUBTEMAS: z.string().min(1).default("gpt-4o"),
+  // Fase 2 (1 chamada por subtema, todas em paralelo — gera conceitos +
+  // perguntas): mini é suficiente pra tarefa e mais barato/rápido, importante
+  // porque várias chamadas disparam ao mesmo tempo dentro do teto de 60s da
+  // função na Vercel.
+  OPENAI_MODEL_CONCEITOS: z.string().min(1).default("gpt-4o-mini"),
   MAX_INPUT_CHARS: z.coerce.number().default(80000),
   MAX_UPLOAD_MB: z.coerce.number().default(15),
 
