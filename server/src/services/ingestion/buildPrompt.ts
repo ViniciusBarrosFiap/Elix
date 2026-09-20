@@ -99,7 +99,6 @@ Regras obrigatórias:
 - "dica" é um texto curto mostrado ANTES do aluno responder — NUNCA revele ou insinue a resposta correta nela (isso vale também pra pergunta dissertativa: a dica não pode conter a resposta_modelo nem se aproximar dela).
 - "explicacao" é mostrada DEPOIS do aluno responder — aí sim pode e deve explicar por que a resposta está certa (nas de nível 1-3) ou complementar a resposta_modelo (no nível 4). Formate esse texto em markdown (negrito, listas, quebras de parágrafo) quando ajudar a organizar a explicação.
 - Baseie-se estritamente no conteúdo do material abaixo. Não invente fatos que não estejam nele.
-- Varie a posição da alternativa correta entre as perguntas de múltipla escolha (A, B, C ou D) — não deixe a resposta certa sempre na mesma letra nem siga um padrão previsível.
 - Responda em português do Brasil.
 ${buildCorrecaoBlock(correcaoAnterior)}
 
