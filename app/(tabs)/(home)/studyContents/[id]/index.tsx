@@ -13,7 +13,7 @@ import {
 } from "lucide-react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, ScrollView, StatusBar, Text, View } from "react-native";
+import { ActionSheetIOS, ActivityIndicator, Alert, Platform, Pressable, ScrollView, StatusBar, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
@@ -24,6 +24,7 @@ import {
   BottomSheetScrollView,
 } from "@gorhom/bottom-sheet";
 import { StudyContentService } from "@/src/services/studyContent/studyContent.service";
+import { MaterialsService } from "@/src/services/materials/materials.service";
 import { useStudyContentStore } from "@/src/store/studyContentStore";
 import { useUserDataStore } from "@/src/store/userDataStore";
 import { UserService } from "@/src/services/user/user.service";
@@ -87,6 +88,54 @@ export default function DisciplinaDetalhe() {
     setMaterialSelecionadoId(materialId);
     bottomSheetRef.current?.present();
   }, []);
+
+  // Segurar o dedo num material abre um menu nativo de cada plataforma (Action
+  // Sheet no iOS, AlertDialog no Android — não dá pra ter um Action Sheet de
+  // verdade no Android sem depender de uma lib nativa extra) com a opção de
+  // deletar. Apagar é definitivo: cascateia no banco e some com subtemas,
+  // conceitos e perguntas gerados a partir desse material (ver
+  // deleteMaterial em materials.service.ts no server).
+  const handleLongPressMaterial = useCallback(
+    (material: { id: string; nome: string }) => {
+      const deletar = async () => {
+        try {
+          await MaterialsService.deleteMaterial(material.id);
+          if (materialSelecionadoId === material.id) {
+            bottomSheetRef.current?.dismiss();
+            setMaterialSelecionadoId(null);
+          }
+        } catch {
+          Alert.alert("Erro", "Não foi possível deletar o material agora. Tente de novo.");
+        }
+      };
+
+      if (Platform.OS === "ios") {
+        ActionSheetIOS.showActionSheetWithOptions(
+          {
+            title: material.nome,
+            message:
+              "Apagar remove também os subtemas, conceitos e perguntas gerados a partir dele. Essa ação não pode ser desfeita.",
+            options: ["Deletar material", "Cancelar"],
+            destructiveButtonIndex: 0,
+            cancelButtonIndex: 1,
+          },
+          (buttonIndex) => {
+            if (buttonIndex === 0) deletar();
+          }
+        );
+      } else {
+        Alert.alert(
+          material.nome,
+          "Apagar remove também os subtemas, conceitos e perguntas gerados a partir dele. Essa ação não pode ser desfeita.",
+          [
+            { text: "Cancelar", style: "cancel" },
+            { text: "Deletar", style: "destructive", onPress: deletar },
+          ]
+        );
+      }
+    },
+    [materialSelecionadoId]
+  );
 
   // Remove a disciplina da lista ativa do usuário — soft delete (mesmo
   // caminho de "Editar disciplinas"): o progresso já gerado não é apagado,
@@ -269,6 +318,7 @@ export default function DisciplinaDetalhe() {
       <Pressable
         key={material.id}
         onPress={() => abrirSheetDoMaterial(material.id)}
+        onLongPress={() => handleLongPressMaterial(material)}
         className="rounded-[24px] p-4 flex-row items-center active:opacity-80"
         style={{ backgroundColor: SURFACE_SUBTEMA, borderWidth: 1, borderColor: `${PRIMARY}26` }}
       >

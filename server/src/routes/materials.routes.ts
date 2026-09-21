@@ -7,6 +7,7 @@ import {
   uploadNotionMaterial,
   getMaterialViewUrlHandler,
   getMaterialNotionContentHandler,
+  deleteMaterialHandler,
 } from "../controllers/materials.controller";
 import { env } from "../config/env";
 
@@ -22,3 +23,4 @@ materialsRouter.post("/youtube", deviceAuth, uploadYoutubeMaterial);
 materialsRouter.post("/notion", deviceAuth, uploadNotionMaterial);
 materialsRouter.get("/:id/view-url", deviceAuth, getMaterialViewUrlHandler);
 materialsRouter.get("/:id/notion-content", deviceAuth, getMaterialNotionContentHandler);
+materialsRouter.delete("/:id", deviceAuth, deleteMaterialHandler);

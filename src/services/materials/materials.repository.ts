@@ -17,6 +17,10 @@ export interface MaterialViewUrl {
   url: string | null;
 }
 
+export interface DeleteMaterialResult {
+  macrotemas: StudyContentData["macrotemas"];
+}
+
 export const MaterialsRepository = {
   async uploadFile(
     file: UploadableFile,
@@ -77,5 +81,11 @@ export const MaterialsRepository = {
       method: "GET",
     });
     return markdown;
+  },
+
+  async deleteMaterial(materialId: string): Promise<DeleteMaterialResult> {
+    return apiFetch<DeleteMaterialResult>(`/api/materials/${materialId}`, {
+      method: "DELETE",
+    });
   },
 };

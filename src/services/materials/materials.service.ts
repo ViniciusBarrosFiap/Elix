@@ -31,4 +31,14 @@ export const MaterialsService = {
 
     return result;
   },
+
+  async deleteMaterial(materialId: string) {
+    const result = await MaterialsRepository.deleteMaterial(materialId);
+
+    useStudyContentStore
+      .getState()
+      .setData({ macrotemas: result.macrotemas });
+
+    return result;
+  },
 };

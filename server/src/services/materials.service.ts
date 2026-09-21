@@ -274,6 +274,50 @@ export async function getMaterialNotionContent(materialId: string, userId: strin
   return fetchNotionPageText(accessToken, material.notion_page_id as string);
 }
 
+export interface DeleteMaterialResult {
+  macrotemas: StudyContentData["macrotemas"];
+}
+
+/**
+ * Apaga um material e tudo que veio dele — subtemas, conceitos e perguntas
+ * cascateiam pela FK sub_temas.material_id (ver 007_material_hierarchy.sql),
+ * sem precisar apagar cada tabela manualmente aqui. Diferente da remoção de
+ * disciplina (soft-delete, ver users.controller.ts), apagar um material É
+ * definitivo — não tem como desfazer.
+ */
+export async function deleteMaterial(materialId: string, userId: string): Promise<DeleteMaterialResult> {
+  const { data: material, error } = await supabase
+    .from("materials")
+    .select("storage_path")
+    .eq("id", materialId)
+    .eq("user_id", userId)
+    .single();
+
+  if (error || !material) {
+    throw new HttpError(404, "Material não encontrado.");
+  }
+
+  const { error: deleteError } = await supabase.from("materials").delete().eq("id", materialId);
+
+  if (deleteError) {
+    throw new HttpError(500, "Falha ao remover o material.");
+  }
+
+  // Best-effort: se o arquivo original ficar órfão no Storage, não é motivo
+  // pra falhar a remoção (que já aconteceu no banco).
+  if (material.storage_path) {
+    const { error: storageError } = await supabase.storage
+      .from(env.SUPABASE_STORAGE_BUCKET)
+      .remove([material.storage_path as string]);
+    if (storageError) {
+      console.warn("Falha ao remover arquivo do Storage:", storageError.message);
+    }
+  }
+
+  const { macrotemas } = await getStudyContent(userId);
+  return { macrotemas };
+}
+
 export async function processYoutubeLink({
   userId,
   macroTemaId,

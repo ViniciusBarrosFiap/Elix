@@ -6,6 +6,7 @@ import {
   processNotionPage,
   getMaterialViewUrl,
   getMaterialNotionContent,
+  deleteMaterial,
 } from "../services/materials.service";
 
 function parseTags(raw: unknown): string[] {
@@ -120,4 +121,11 @@ export async function getMaterialViewUrlHandler(req: Request, res: Response) {
 export async function getMaterialNotionContentHandler(req: Request, res: Response) {
   const markdown = await getMaterialNotionContent(req.params.id, req.user!.id);
   return res.status(200).json({ markdown });
+}
+
+// DELETE /api/materials/:id — apaga o material e tudo que veio dele
+// (subtemas/conceitos/perguntas cascateiam no banco).
+export async function deleteMaterialHandler(req: Request, res: Response) {
+  const result = await deleteMaterial(req.params.id, req.user!.id);
+  return res.status(200).json(result);
 }
