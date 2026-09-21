@@ -17,6 +17,7 @@ type Discipline = {
 };
 
 const CARD_SIZE = 92;
+const EMOJI_PADRAO = '📘';
 
 export default function DisciplineSelectionScreen() {
     const [disciplines, setDisciplines] = useState<Discipline[]>([]);
@@ -34,14 +35,12 @@ export default function DisciplineSelectionScreen() {
 
     function confirmarNovaDisciplina() {
         const nome = modalNome.trim();
-        const emoji = modalEmoji.trim();
+        // Emoji é opcional — sem ele, cai no padrão (📘) em vez de travar o
+        // aluno numa etapa que não devia ser obrigatória.
+        const emoji = modalEmoji.trim() || EMOJI_PADRAO;
 
         if (!nome) {
             Alert.alert('Nome obrigatório', 'Dê um nome pra disciplina antes de adicionar.');
-            return;
-        }
-        if (!emoji) {
-            Alert.alert('Emoji obrigatório', 'Escolha um emoji antes de adicionar.');
             return;
         }
 
@@ -207,6 +206,7 @@ export default function DisciplineSelectionScreen() {
                                     <TextInput
                                         value={modalEmoji}
                                         onChangeText={setModalEmoji}
+                                        placeholder={EMOJI_PADRAO}
                                         maxLength={4}
                                         textAlign="center"
                                         style={{ fontSize: 28, width: "100%", color: "#fff" }}
@@ -239,7 +239,7 @@ export default function DisciplineSelectionScreen() {
                             <View className="flex-row items-center mb-5" style={{ gap: 6 }}>
                                 <Info size={13} color={colors.primary} />
                                 <Text className="text-[11px] flex-1" style={{ color: colors.onSurfaceVariant }}>
-                                    Toque no quadrado do emoji e abra o teclado de emojis do seu celular.
+                                    Toque no quadrado do emoji e abra o teclado de emojis do seu celular. Opcional — sem escolher um, usamos {EMOJI_PADRAO} como padrão.
                                 </Text>
                             </View>
 
