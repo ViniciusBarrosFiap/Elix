@@ -5,6 +5,7 @@ export interface MacroTemaListItem {
   id: string;
   nome: string;
   emoji: string;
+  cor?: string | null;
   status: string;
 }
 

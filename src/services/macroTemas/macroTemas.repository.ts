@@ -3,12 +3,15 @@ import { apiFetch } from "@/src/lib/apiClient";
 export interface UpdateMacroTemaInput {
   nome?: string;
   emoji?: string;
+  // null volta pra cor padrão.
+  cor?: string | null;
 }
 
 export interface MacroTemaSummary {
   id: string;
   nome: string;
   emoji: string;
+  cor?: string | null;
   status: string;
 }
 

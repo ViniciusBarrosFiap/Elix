@@ -3,6 +3,7 @@ import { QuizQuestionsService } from "@/src/services/quiz/quiz.service";
 import { StudyContentService } from "@/src/services/studyContent/studyContent.service";
 import { UserService } from "@/src/services/user/user.service";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
+import { UploadStatusPill } from "@/src/components/UploadStatusPill";
 import {
   Manrope_400Regular,
   Manrope_500Medium,
@@ -55,6 +56,7 @@ export default function RootLayout() {
           <Stack.Screen name="index" />
           <Stack.Screen name="(tabs)" />
         </Stack>
+        <UploadStatusPill />
       </BottomSheetModalProvider>
     </GestureHandlerRootView>
   );

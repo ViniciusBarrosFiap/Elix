@@ -5,6 +5,7 @@ export interface MacroTemaListItem {
   id: string;
   nome: string;
   emoji: string;
+  cor: string | null;
   status: string;
 }
 
@@ -72,7 +73,7 @@ export async function syncMacroTemasFromDisciplinas(userId: string, disciplinas:
 export async function listMacroTemas(userId: string): Promise<MacroTemaListItem[]> {
   const { data, error } = await supabase
     .from("macro_temas")
-    .select("id, nome, emoji, status")
+    .select("id, nome, emoji, cor, status")
     .eq("user_id", userId)
     .eq("ativo", true)
     .order("ordem", { ascending: true })
@@ -103,7 +104,7 @@ export async function assertMacroTemaBelongsToUser(macroTemaId: string, userId: 
 }
 
 /**
- * Renomeia e/ou troca o emoji de uma disciplina (segurar o card na tela
+ * Renomeia e/ou troca o emoji/cor de uma disciplina (segurar o card na tela
  * "Todos os conteúdos" abre o modal que chama isso). Quando o nome muda,
  * também troca a entrada correspondente em `users.disciplinas` — essa lista
  * é quem `syncMacroTemasFromDisciplinas` usa pra decidir criar/reativar/
@@ -114,10 +115,11 @@ export async function assertMacroTemaBelongsToUser(macroTemaId: string, userId: 
 export async function updateMacroTema(
   macroTemaId: string,
   userId: string,
-  updates: { nome?: string; emoji?: string }
+  updates: { nome?: string; emoji?: string; cor?: string | null }
 ): Promise<MacroTemaListItem> {
-  const dbUpdates: Record<string, string> = {};
+  const dbUpdates: Record<string, string | null> = {};
   if (updates.emoji !== undefined) dbUpdates.emoji = updates.emoji;
+  if (updates.cor !== undefined) dbUpdates.cor = updates.cor;
 
   if (updates.nome !== undefined) {
     const { data: atual, error: atualError } = await supabase
@@ -156,7 +158,7 @@ export async function updateMacroTema(
     .update(dbUpdates)
     .eq("id", macroTemaId)
     .eq("user_id", userId)
-    .select("id, nome, emoji, status")
+    .select("id, nome, emoji, cor, status")
     .single();
 
   if (updateError) {

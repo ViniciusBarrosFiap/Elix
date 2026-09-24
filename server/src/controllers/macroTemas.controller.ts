@@ -23,7 +23,7 @@ export async function reorderMacroTemasHandler(req: Request, res: Response) {
   return res.status(200).json(macroTemas);
 }
 
-// PATCH /api/macro-temas/:id — renomear e/ou trocar o emoji da disciplina.
+// PATCH /api/macro-temas/:id — renomear e/ou trocar o emoji/cor da disciplina.
 export async function patchMacroTema(req: Request, res: Response) {
   const parsed = updateMacroTemaSchema.safeParse(req.body);
   if (!parsed.success) {

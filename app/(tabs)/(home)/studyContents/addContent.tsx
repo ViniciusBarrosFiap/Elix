@@ -39,10 +39,12 @@ import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as DocumentPicker from 'expo-document-picker';
 import { UserService } from '@/src/services/user/user.service';
+import { QuizQuestionsService } from '@/src/services/quiz/quiz.service';
 import { StudyContentService } from '@/src/services/studyContent/studyContent.service';
 import { MacroTemaListItem } from '@/src/services/studyContent/studyContent.repository';
 import { MaterialsService } from '@/src/services/materials/materials.service';
 import { NotionService, NotionPage } from '@/src/services/notion/notion.service';
+import { useUploadStatusStore } from '@/src/store/uploadStatusStore';
 import { colors, semantic } from '@/src/theme/colors';
 import { MarkdownContentModal } from '@/src/components/MarkdownContentModal';
 
@@ -113,7 +115,11 @@ export default function AddContent() {
   const [isLoadingMacroTemas, setIsLoadingMacroTemas] = useState(true);
   const [selectedMacroTemaId, setSelectedMacroTemaId] = useState<string | null>(macroTemaIdParam ?? null);
   const [isMacroTemaPickerOpen, setIsMacroTemaPickerOpen] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
+
+  // Reativo ao store global — se o aluno voltar a esta tela enquanto uma
+  // geração anterior ainda está rodando em segundo plano, o botão já nasce
+  // desabilitado em vez de deixá-lo tocar e só então mostrar o Alert de "Aguarde".
+  const geracaoEmAndamento = useUploadStatusStore((s) => s.status === 'processing');
 
   useEffect(() => {
     async function loadMacroTemas() {
@@ -370,7 +376,20 @@ export default function AddContent() {
     handlePickFile();
   }
 
+  // Antes, essa função ficava presa nesta tela até a IA terminar (podia levar
+  // minutos) mostrando um spinner. Agora dispara a geração e já volta pra
+  // Home — o progresso passa a viver no store global (useUploadStatusStore) e
+  // aparece no container flutuante acima da tab bar (UploadStatusPill, em
+  // app/_layout.tsx), que continua de pé independente desta tela.
   async function handleGenerate() {
+    // O store é um singleton — uma 2ª geração simultânea sobrescreveria o
+    // status da 1ª (ver critério de UX: "revisões concorrentes se atropelam").
+    // Mais simples bloquear aqui do que virar uma fila de verdade.
+    if (useUploadStatusStore.getState().status === 'processing') {
+      Alert.alert('Aguarde', 'Já tem uma revisão sendo gerada. Espere ela terminar antes de enviar outro material.');
+      return;
+    }
+
     if (!selectedMacroTemaId) {
       Alert.alert('Selecione uma disciplina', 'Escolha a qual disciplina este material pertence antes de gerar a revisão.');
       return;
@@ -381,52 +400,69 @@ export default function AddContent() {
       return;
     }
 
-    setIsGenerating(true);
-    try {
-      const result = notionPage
-        ? await MaterialsService.uploadNotionPage(
-            notionPage.id,
-            notionPage.title,
-            selectedMacroTemaId,
-            tags.map((t) => t.label)
-          )
-        : youtubeUrl
-          ? await MaterialsService.uploadYoutubeLink(
-              youtubeUrl,
-              selectedMacroTemaId,
-              tags.map((t) => t.label)
+    // Snapshot do que foi escolhido nesta tela — `executar` também serve como
+    // callback de "Tentar novamente" no UploadStatusPill se a geração falhar,
+    // reusado mesmo depois desta tela já ter sido desmontada pelo redirect.
+    const macroTemaId = selectedMacroTemaId;
+    const tagsSnapshot = tags.map((t) => t.label);
+    const notionPageSnapshot = notionPage;
+    const youtubeUrlSnapshot = youtubeUrl;
+    const fileSnapshot = file;
+
+    const executar = async () => {
+      useUploadStatusStore.getState().iniciar(undefined, executar);
+      let result;
+      try {
+        result = notionPageSnapshot
+          ? await MaterialsService.uploadNotionPage(
+              notionPageSnapshot.id,
+              notionPageSnapshot.title,
+              macroTemaId,
+              tagsSnapshot
             )
-          : await MaterialsService.uploadFile(
-              { uri: file!.uri, name: file!.name, mimeType: file!.mimeType },
-              selectedMacroTemaId,
-              tags.map((t) => t.label)
-            );
+          : youtubeUrlSnapshot
+            ? await MaterialsService.uploadYoutubeLink(youtubeUrlSnapshot, macroTemaId, tagsSnapshot)
+            : await MaterialsService.uploadFile(
+                { uri: fileSnapshot!.uri, name: fileSnapshot!.name, mimeType: fileSnapshot!.mimeType },
+                macroTemaId,
+                tagsSnapshot
+              );
+      } catch (error) {
+        const mensagem = error instanceof Error ? error.message : 'Não foi possível gerar sua revisão agora.';
+        useUploadStatusStore.getState().falhar(mensagem);
+        return;
+      }
 
-      await UserService.updateUser({
-        fezUpload: true,
-      });
+      // Daqui pra frente a revisão JÁ foi gerada e salva no servidor. Falha nos
+      // passos abaixo NÃO pode virar "Falha ao gerar revisão" — o aluno tocaria
+      // em "Tentar novamente" e reenviaria o material, duplicando tudo.
+      let subtitulo: string | undefined;
+      try {
+        await UserService.updateUser({ fezUpload: true });
 
-      // Confirmação explícita e inconfundível: um Alert nativo que exige toque
-      // para fechar. A animação da loadingScreen sozinha não bastava — mesmo
-      // com texto de "pronto", o frasco enchendo sempre lê como "em andamento".
-      const macroTemaAtualizado = result.macrotemas.find((m) => m.id === selectedMacroTemaId);
-      const totalConceitos = macroTemaAtualizado
-        ? macroTemaAtualizado.subtemas.reduce((total, subtema) => total + subtema.conceitos.length, 0)
-        : 0;
+        // Atualiza a dose diária ANTES de avisar que terminou: o card "Revisão
+        // de Hoje" da Home só refaz o fetch ao ganhar foco, e o aluno já está
+        // nela — sem isso o splash estouraria num card ainda com a contagem antiga.
+        await QuizQuestionsService.initialize();
 
-      Alert.alert(
-        'Revisão gerada com sucesso!',
-        macroTemaAtualizado
-          ? `${totalConceitos} conceitos foram criados em "${macroTemaAtualizado.nome}".`
-          : 'Suas perguntas já estão disponíveis para revisão.',
-        [{ text: 'Ver revisão', onPress: () => router.replace('/home') }]
-      );
-    } catch (error) {
-      const mensagem = error instanceof Error ? error.message : 'Não foi possível gerar sua revisão agora.';
-      Alert.alert('Erro ao gerar revisão', mensagem);
-    } finally {
-      setIsGenerating(false);
-    }
+        // Conta só os conceitos que vieram DESTE material (não a disciplina
+        // toda) — é o que a revisão diária ganhou de novo agora.
+        const macroTemaAtualizado = result.macrotemas.find((m) => m.id === macroTemaId);
+        if (macroTemaAtualizado) {
+          const novos = macroTemaAtualizado.subtemas
+            .filter((s) => s.material?.id === result.material_id)
+            .reduce((total, s) => total + s.conceitos.length, 0);
+          subtitulo = `${macroTemaAtualizado.nome} · ${novos} ${novos === 1 ? 'conceito novo' : 'conceitos novos'}`;
+        }
+      } catch (error) {
+        console.warn('Pós-processamento da geração falhou (a revisão foi criada normalmente):', error);
+      }
+
+      useUploadStatusStore.getState().concluir({ subtitulo });
+    };
+
+    executar();
+    router.replace('/home');
   }
 
   async function handlePickFile() {
@@ -996,8 +1032,8 @@ export default function AddContent() {
       >
         <TouchableOpacity
           onPress={handleGenerate}
-          disabled={isGenerating}
-          style={{ opacity: isGenerating ? 0.7 : 1, alignSelf: 'center', width: '80%' }}
+          disabled={geracaoEmAndamento}
+          style={{ alignSelf: 'center', width: '80%', opacity: geracaoEmAndamento ? 0.6 : 1 }}
           className="active:opacity-90"
         >
           <LinearGradient
@@ -1008,29 +1044,13 @@ export default function AddContent() {
           >
             {/* Botão de ação principal maior com py-5 e texto text-lg */}
             <View className="flex-row items-center justify-center py-5 ">
-              {isGenerating ? (
-                <>
-                  <ActivityIndicator color="#ffffff" />
-                  <Text className="font-semibold text-white text-lg ml-2.5">
-                    Gerando...
-                  </Text>
-                </>
-              ) : (
-                <>
-                  <Wand2 size={22} color="#ffffff" />
-                  <Text className="font-semibold text-white text-lg ml-2.5">
-                    Gerar revisão
-                  </Text>
-                </>
-              )}
+              <Wand2 size={22} color="#ffffff" />
+              <Text className="font-semibold text-white text-lg ml-2.5">
+                {geracaoEmAndamento ? 'Aguarde a revisão atual...' : 'Gerar revisão'}
+              </Text>
             </View>
           </LinearGradient>
         </TouchableOpacity>
-        {isGenerating && (
-          <Text className="text-center text-muted text-xs mt-3">
-            Isso pode levar alguns minutos — a IA está lendo seu material. Não feche o app.
-          </Text>
-        )}
       </LinearGradient>
     </SafeAreaView>
 

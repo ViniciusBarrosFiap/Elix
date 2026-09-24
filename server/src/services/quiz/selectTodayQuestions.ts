@@ -59,6 +59,19 @@ function embaralhar<T>(itens: T[]): T[] {
   return copia;
 }
 
+// Conceitos gerados ANTES do nível 4 existir só têm perguntas 1-3, mas
+// submitAnswer já pôde levar o nivel_atual deles pra 4 (acertou o 3 -> sobe).
+// Sem esse fallback, a pergunta do nível 4 não existe, o conceito era filtrado
+// da dose pra sempre e ficava "vencido" na tela da disciplina sem nunca
+// aparecer pra revisar. Cai na pergunta de maior nível disponível <= nivel_atual
+// — responder ela certo, com nivel_atual >= 4, já leva o conceito a "dominado"
+// (ver submitAnswer.ts).
+function perguntaDoNivelAtual(conceito: ConceitoRow): ConceitoRow["perguntas"][number] | undefined {
+  return conceito.perguntas
+    .filter((p) => p.nivel <= conceito.nivel_atual)
+    .sort((a, b) => b.nivel - a.nivel)[0];
+}
+
 function calculateConceptPriority(conceito: ConceitoRow, hoje: Date): number {
   const diasAtraso = diasDeAtraso(conceito.proxima_revisao, hoje);
 
@@ -119,7 +132,7 @@ export async function selectTodayQuestions(
   const priorizadosOrdenados = conceitos
     .map((conceito) => ({
       conceito,
-      pergunta: conceito.perguntas.find((p) => p.nivel === conceito.nivel_atual),
+      pergunta: perguntaDoNivelAtual(conceito),
     }))
     .filter((item): item is { conceito: ConceitoRow; pergunta: NonNullable<typeof item.pergunta> } =>
       Boolean(item.pergunta)

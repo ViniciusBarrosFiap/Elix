@@ -1,4 +1,5 @@
 import {
+  AlertCircle,
   ArrowLeft,
   Bell,
   ChevronRight,
@@ -21,6 +22,7 @@ import { useUserDataStore } from "@/src/store/userDataStore";
 import { useStudyContentStore } from "@/src/store/studyContentStore";
 import { useQuizQuestionsStore } from "@/src/store/quizQuestionsStore";
 import { useQuizSessionStore } from "@/src/store/quizSessionStore";
+import { useUploadStatusStore } from "@/src/store/uploadStatusStore";
 import { colors, semantic, surfaceDim } from "@/src/theme/colors";
 import { ativarDevTestMode, desativarDevTestMode } from "@/src/dev/devTestMode";
 import { mockQuizQuestions, mockUserData } from "@/src/dev/mockData";
@@ -52,6 +54,28 @@ function ativarQuizMock() {
   // Zera o "trava por hoje" da sessão — sem isso, testar o quiz mais de uma
   // vez no mesmo dia manteria o progresso (acertos/elixir) do teste anterior.
   useQuizSessionStore.setState({ data: "", totalSessao: 0, elixirMaximo: 0, acertos: 0, erros: 0, elixirTotal: 0 });
+}
+
+// Simula o ciclo do card flutuante (processando → sucesso/erro) SEM chamar o
+// backend nem a OpenAI — é só o store global, então não gasta token nem cria
+// material. Vai pra Home porque é lá que o card da revisão diária existe (alvo
+// da bolinha). O retry do erro reexecuta a simulação.
+function simularGeracao(resultado: "sucesso" | "erro") {
+  if (useUploadStatusStore.getState().status === "processing") return;
+
+  const rodar = () => {
+    useUploadStatusStore.getState().iniciar(undefined, rodar);
+    setTimeout(() => {
+      if (resultado === "sucesso") {
+        useUploadStatusStore.getState().concluir({ subtitulo: "Anatomia · 12 conceitos novos" });
+      } else {
+        useUploadStatusStore.getState().falhar("Erro simulado (teste) — nada foi enviado.");
+      }
+    }, 3000);
+  };
+
+  rodar();
+  router.push("/(tabs)/home" as any);
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -179,6 +203,22 @@ export default function TestesScreen() {
             label="Últimos uploads"
             description="Estrutura real (subtema → conceito → pergunta) gerada pela IA, pra revisar a saída"
             onPress={() => irPara("/testesUploads")}
+            isLast
+          />
+        </Section>
+
+        <Section title="Card de geração de revisão">
+          <Row
+            icon={<Sparkles size={18} color={PRIMARY_LIGHT} />}
+            label="Simular geração (sucesso)"
+            description="Processando por 3s → check → bolinha voa até a Revisão de Hoje. Sem backend, sem token"
+            onPress={() => simularGeracao("sucesso")}
+          />
+          <Row
+            icon={<AlertCircle size={18} color={PRIMARY_LIGHT} />}
+            label="Simular geração (erro)"
+            description="Processando por 3s → card vermelho com 'Tentar novamente'"
+            onPress={() => simularGeracao("erro")}
             isLast
           />
         </Section>

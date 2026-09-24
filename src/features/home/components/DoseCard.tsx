@@ -1,8 +1,13 @@
 import { Entypo, Feather } from "@expo/vector-icons";
-import { useEffect, useRef } from "react";
-import { Animated, Image, Text, TouchableOpacity, useWindowDimensions, View } from "react-native";
+import { useFocusEffect } from "expo-router";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Animated, Easing, Image, Text, TouchableOpacity, useWindowDimensions, View } from "react-native";
 import { CheckCircle2, Sparkles } from 'lucide-react-native';
 import { useQuizQuestionsStore } from "@/src/store/quizQuestionsStore";
+import { registrarDoseTarget } from "@/src/features/home/doseCardTarget";
+
+const COR_SPLASH = "#a855f7";
+const SPLASH_RINGS = 3;
 
 const DoseCard = ({ onPress }: { onPress: () => void }) => {
   const quizData = useQuizQuestionsStore((state) => state.data);
@@ -44,6 +49,49 @@ const DoseCard = ({ onPress }: { onPress: () => void }) => {
   const iconBoxSize = width * 0.13;
   const cardPadding = width * 0.055;
 
+  // ── Alvo da bolinha do UploadStatusPill + efeito de splash ────────────────
+  // Quando uma revisão termina de ser gerada, o card flutuante vira uma bolinha
+  // e voa até aqui (ver UploadStatusPill); ao chegar, chama splash(): uma onda
+  // que nasce no centro e se espalha DENTRO do card (clipada pelo overflow
+  // hidden dele), com um pequeno "quique" do card todo.
+  const wrapperRef = useRef<View>(null);
+  const [cardSize, setCardSize] = useState({ w: 0, h: 0 });
+  const rings = useRef(Array.from({ length: SPLASH_RINGS }, () => new Animated.Value(0))).current;
+  const bump = useRef(new Animated.Value(0)).current;
+
+  const splash = useCallback(() => {
+    rings.forEach((v) => v.setValue(0));
+    bump.setValue(0);
+    Animated.parallel([
+      Animated.sequence([
+        Animated.timing(bump, { toValue: 1, duration: 161, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+        Animated.spring(bump, { toValue: 0, friction: 5, tension: 120, useNativeDriver: true }),
+      ]),
+      Animated.stagger(
+        138,
+        rings.map((v) => Animated.timing(v, { toValue: 1, duration: 920, easing: Easing.out(Easing.cubic), useNativeDriver: true }))
+      ),
+    ]).start();
+  }, [rings, bump]);
+
+  // Só se registra como alvo enquanto a Home está em foco — fora dela (outra
+  // aba, quiz por cima) o pill não tem pra onde voar e faz só o fade.
+  useFocusEffect(
+    useCallback(() => {
+      return registrarDoseTarget({
+        measure: () =>
+          new Promise((resolve) => {
+            const node = wrapperRef.current;
+            if (!node) return resolve(null);
+            node.measureInWindow((x, y, w, h) => resolve(w > 0 && h > 0 ? { x, y, width: w, height: h } : null));
+          }),
+        splash,
+      });
+    }, [splash])
+  );
+
+  const splashDiametro = Math.max(cardSize.w, cardSize.h) * 1.7;
+
   return (
     // Brilho ao redor do card: `boxShadow` (CSS-like, suportado no RN com a
     // New Architecture — já sempre ativa nesse projeto) em vez de simular
@@ -52,7 +100,14 @@ const DoseCard = ({ onPress }: { onPress: () => void }) => {
     // nada aparece por baixo do card mesmo com o fundo dele transparente.
     // Enquanto há revisão pendente, "respira" (opacity do halo inteiro
     // animada); quando concluída, fica parado e mais discreto.
-    <View style={{ marginHorizontal: width * 0.03 }}>
+    <Animated.View
+      ref={wrapperRef}
+      collapsable={false}
+      style={{
+        marginHorizontal: width * 0.03,
+        transform: [{ scale: bump.interpolate({ inputRange: [0, 1], outputRange: [1, 1.03] }) }],
+      }}
+    >
       <Animated.View
         pointerEvents="none"
         style={{
@@ -73,6 +128,7 @@ const DoseCard = ({ onPress }: { onPress: () => void }) => {
         borderWidth: 1,
         borderColor: "rgba(139,92,246,0.35)",
       }}
+      onLayout={(e) => setCardSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}
     >
       <View style={{ padding: cardPadding }}>
         <Image
@@ -163,8 +219,32 @@ const DoseCard = ({ onPress }: { onPress: () => void }) => {
             </Text>
         </TouchableOpacity>
       </View>
+
+      {/* Splash: o 1º anel é um clarão preenchido, os outros dois são só
+          contorno — todos nascem no centro do card e crescem até passar das
+          bordas (clipados pelo overflow hidden do card). */}
+      {cardSize.w > 0 &&
+        rings.map((v, i) => (
+          <Animated.View
+            key={i}
+            pointerEvents="none"
+            style={{
+              position: "absolute",
+              width: splashDiametro,
+              height: splashDiametro,
+              left: cardSize.w / 2 - splashDiametro / 2,
+              top: cardSize.h / 2 - splashDiametro / 2,
+              borderRadius: splashDiametro / 2,
+              backgroundColor: i === 0 ? "rgba(168,85,247,0.45)" : "transparent",
+              borderWidth: i === 0 ? 0 : 3,
+              borderColor: COR_SPLASH,
+              opacity: v.interpolate({ inputRange: [0, 0.12, 1], outputRange: [0, 0.85, 0] }),
+              transform: [{ scale: v.interpolate({ inputRange: [0, 1], outputRange: [0.05, 1] }) }],
+            }}
+          />
+        ))}
     </View>
-    </View>
+    </Animated.View>
   );
 };
 

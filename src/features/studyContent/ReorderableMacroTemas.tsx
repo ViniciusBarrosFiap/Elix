@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Text, View } from "react-native";
+import { Dimensions, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   LinearTransition,
@@ -9,25 +9,32 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
+import LiquidFillCard from "@/src/features/home/components/LiquidFillCard";
 import { MacroTema, STATUS_LABEL } from "@/src/types/studyContent";
 
-// Altura fixa do card + espaço entre eles — a matemática do arrastar (quantas
-// "casas" o dedo já andou) depende de tudo ter exatamente essa altura, por
-// isso numberOfLines={1} no nome/subtítulo do card (texto maior não pode
-// crescer a altura e desalinhar a conta).
-const CARD_HEIGHT = 80;
-const GAP = 12;
-const ROW_HEIGHT = CARD_HEIGHT + GAP;
+// Grade de 2 colunas com o mesmo card líquido da Home. Tamanho fixo por card:
+// a matemática do arrastar (em qual "casa" da grade o dedo já está) depende de
+// todas as células terem exatamente CARD_W x CARD_H.
+const COLS = 2;
+// Mesmo padding horizontal do ScrollView que envolve esta grade (ver
+// app/(tabs)/(home)/studyContents/index.tsx).
+const H_PADDING = 24;
+const GAP = 16;
+const SCREEN_W = Dimensions.get("window").width;
+const CARD_W = Math.floor((SCREEN_W - H_PADDING * 2 - GAP) / COLS);
+// Proporção igual à do carrossel da Home (ContentCards.tsx).
+const CARD_H = Math.max(140, Math.round(CARD_W * 0.95));
+const COL_W = CARD_W + GAP;
+const ROW_H = CARD_H + GAP;
 
 function clamp(valor: number, min: number, max: number): number {
   "worklet";
   return Math.min(Math.max(valor, min), max);
 }
 
-interface DisciplinaRowProps {
+interface DisciplinaCardProps {
   macroTema: MacroTema;
   index: number;
-  isLast: boolean;
   isDragging: boolean;
   onPress: () => void;
   onDragStart: (id: string, index: number) => void;
@@ -36,21 +43,22 @@ interface DisciplinaRowProps {
   totalItens: number;
 }
 
-// Um card da lista — a própria alça é o card inteiro: segurar (long press)
-// inicia o arrasto, toque rápido navega pra disciplina. Só o card ATIVO
-// recebe o translateY manual (segue o dedo 1:1); os demais são reposicionados
-// automaticamente pelo `layout={LinearTransition}` quando a ordem muda.
-function DisciplinaRow({
+// Um card da grade — o próprio card é a alça: segurar (long press) inicia o
+// arrasto, toque rápido navega pra disciplina. Só o card ATIVO recebe a
+// translação manual (segue o dedo 1:1, nos dois eixos); os demais são
+// reposicionados automaticamente pelo `layout={LinearTransition}` quando a
+// ordem muda.
+function DisciplinaCard({
   macroTema,
   index,
-  isLast,
   isDragging,
   onPress,
   onDragStart,
   onDragMove,
   onDragEnd,
   totalItens,
-}: DisciplinaRowProps) {
+}: DisciplinaCardProps) {
+  const dragX = useSharedValue(0);
   const dragY = useSharedValue(0);
   const dragStartIndex = useSharedValue(0);
   const lastTargetIndex = useSharedValue(0);
@@ -71,15 +79,27 @@ function DisciplinaRow({
       runOnJS(handleDragStart)();
     })
     .onUpdate((e) => {
-      const bruto = dragStartIndex.value + Math.round(e.translationY / ROW_HEIGHT);
-      const alvo = clamp(bruto, 0, totalItens - 1);
-      dragY.value = e.translationY - (alvo - dragStartIndex.value) * ROW_HEIGHT;
+      const startCol = dragStartIndex.value % COLS;
+      const startRow = Math.floor(dragStartIndex.value / COLS);
+      const maxRow = Math.floor((totalItens - 1) / COLS);
+
+      const col = clamp(startCol + Math.round(e.translationX / COL_W), 0, COLS - 1);
+      const row = clamp(startRow + Math.round(e.translationY / ROW_H), 0, maxRow);
+      const alvo = clamp(row * COLS + col, 0, totalItens - 1);
+
+      // O card arrastado muda de "casa" quando a ordem muda (o layout
+      // reposiciona ele), então desconta esse salto do deslocamento do dedo —
+      // senão ele pularia pra longe do dedo a cada troca.
+      dragX.value = e.translationX - ((alvo % COLS) - startCol) * COL_W;
+      dragY.value = e.translationY - (Math.floor(alvo / COLS) - startRow) * ROW_H;
+
       if (alvo !== lastTargetIndex.value) {
         lastTargetIndex.value = alvo;
         runOnJS(handleDragMove)(alvo);
       }
     })
     .onEnd(() => {
+      dragX.value = withTiming(0, { duration: 150 });
       dragY.value = withTiming(0, { duration: 150 });
       runOnJS(onDragEnd)();
     });
@@ -93,7 +113,9 @@ function DisciplinaRow({
   const composed = Gesture.Exclusive(pan, tap);
 
   const estiloAnimado = useAnimatedStyle(() => ({
-    transform: isDragging ? [{ translateY: dragY.value }, { scale: 1.03 }] : [{ translateY: 0 }, { scale: 1 }],
+    transform: isDragging
+      ? [{ translateX: dragX.value }, { translateY: dragY.value }, { scale: 1.05 }]
+      : [{ translateX: 0 }, { translateY: 0 }, { scale: 1 }],
   }));
 
   return (
@@ -103,28 +125,21 @@ function DisciplinaRow({
         style={[
           estiloAnimado,
           {
-            marginBottom: isLast ? 0 : GAP,
+            width: CARD_W,
+            height: CARD_H,
             zIndex: isDragging ? 10 : 0,
             elevation: isDragging ? 8 : 0,
           },
         ]}
-        className="flex-row items-center rounded-2xl p-4 border border-white/10 bg-surfaceDim-subtema"
       >
-        <View
-          className="w-12 h-12 rounded-xl bg-surfaceDim-conceito items-center justify-center border border-primaryContainer/20 mr-4"
-          style={{ height: CARD_HEIGHT - 32 }}
-        >
-          <Text className="text-2xl">{macroTema.emoji}</Text>
-        </View>
-        <View className="flex-1">
-          <Text className="text-white text-base font-semibold mb-1" numberOfLines={1}>
-            {macroTema.nome}
-          </Text>
-          <Text className="text-muted text-sm" numberOfLines={1}>
-            {STATUS_LABEL[macroTema.status]} · {macroTema.progresso}% · {macroTema.subtemas_ativos}{" "}
-            {macroTema.subtemas_ativos === 1 ? "subtema" : "subtemas"}
-          </Text>
-        </View>
+        <LiquidFillCard
+          title={macroTema.nome}
+          progress={macroTema.progresso}
+          status={STATUS_LABEL[macroTema.status]}
+          icon={macroTema.emoji}
+          height={CARD_H}
+          style={{ width: CARD_W }}
+        />
       </Animated.View>
     </GestureDetector>
   );
@@ -136,10 +151,10 @@ interface ReorderableMacroTemasProps {
   onOrderChange: (orderedIds: string[]) => void;
 }
 
-// Lista de disciplinas com reordenação por arrastar: segure um card e
-// arraste pra cima/baixo pra trocar sua posição — os outros cards deslizam
-// pra abrir espaço sozinhos (Reanimated `layout`). A ordem final só é
-// persistida no servidor quando o dedo solta o card (onOrderChange).
+// Grade de disciplinas com reordenação por arrastar: segure um card e arraste
+// pra qualquer lado pra trocar sua posição — os outros cards deslizam pra abrir
+// espaço sozinhos (Reanimated `layout`). A ordem final só é persistida no
+// servidor quando o dedo solta o card (onOrderChange).
 export function ReorderableMacroTemas({ macrotemas, onPressItem, onOrderChange }: ReorderableMacroTemasProps) {
   const [order, setOrder] = useState<string[]>(() => macrotemas.map((m) => m.id));
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -185,16 +200,15 @@ export function ReorderableMacroTemas({ macrotemas, onPressItem, onOrderChange }
   }
 
   return (
-    <View>
+    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: GAP }}>
       {order.map((id, index) => {
         const macroTema = porId.get(id);
         if (!macroTema) return null;
         return (
-          <DisciplinaRow
+          <DisciplinaCard
             key={id}
             macroTema={macroTema}
             index={index}
-            isLast={index === order.length - 1}
             isDragging={draggingId === id}
             onPress={() => onPressItem(id)}
             onDragStart={handleDragStart}
