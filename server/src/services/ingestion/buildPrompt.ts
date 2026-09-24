@@ -97,7 +97,7 @@ Regras obrigatórias:
 - Cada conceito deve ter EXATAMENTE 4 perguntas: uma com "nivel": 1, uma com "nivel": 2, uma com "nivel": 3, uma com "nivel": 4. Nunca repita nível nem pule algum.
 - "tag_foco" de cada conceito deve ser true apenas se ele estiver diretamente relacionado aos tópicos de foco pedidos pelo aluno (quando houver); caso contrário, false.
 - "dica" é um texto curto mostrado ANTES do aluno responder — NUNCA revele ou insinue a resposta correta nela (isso vale também pra pergunta dissertativa: a dica não pode conter a resposta_modelo nem se aproximar dela).
-- "explicacao" é mostrada DEPOIS do aluno responder — aí sim pode e deve explicar por que a resposta está certa (nas de nível 1-3) ou complementar a resposta_modelo (no nível 4). Formate esse texto em markdown (negrito, listas, quebras de parágrafo) quando ajudar a organizar a explicação.
+- "explicacao" é mostrada DEPOIS do aluno responder — aí sim pode e deve explicar por que a resposta está certa (nas de nível 1-3).
 - Baseie-se estritamente no conteúdo do material abaixo. Não invente fatos que não estejam nele.
 - Responda em português do Brasil.
 ${buildCorrecaoBlock(correcaoAnterior)}
