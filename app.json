@@ -6,13 +6,16 @@
     "orientation": "portrait",
     "scheme": "elix",
     "userInterfaceStyle": "automatic",
+    "icon": "./assets/images/icon.png",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.viniciusbarros.elix"
     },
     "android": {
       "softwareKeyboardLayoutMode": "pan",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE"
+        "foregroundImage": "./assets/images/elix-potion.png",
+        "backgroundColor": "#0B031B"
       },
       "predictiveBackGestureEnabled": false
     },

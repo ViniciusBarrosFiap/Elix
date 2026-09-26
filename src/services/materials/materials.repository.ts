@@ -1,3 +1,4 @@
+import { File } from "expo-file-system";
 import { apiFetch } from "@/src/lib/apiClient";
 import { StudyContentData } from "@/src/types/studyContent";
 
@@ -29,12 +30,11 @@ export const MaterialsRepository = {
   ): Promise<UploadMaterialResult> {
     const formData = new FormData();
 
-    // RN FormData espera esse formato de objeto (não um Blob real) para arquivos.
-    formData.append("file", {
-      uri: file.uri,
-      name: file.name,
-      type: file.mimeType ?? "application/octet-stream",
-    } as unknown as Blob);
+    // O fetch global da SDK 57 (expo/fetch) só aceita Blob/File/string no
+    // FormData — o formato antigo { uri, name, type } lançava "Unsupported
+    // FormDataPart implementation". O File do expo-file-system implementa
+    // Blob (tem .bytes()) e resolve o mimetype sozinho a partir do arquivo.
+    formData.append("file", new File(file.uri), file.name);
 
     formData.append("macro_tema_id", macroTemaId);
     if (tags.length > 0) {

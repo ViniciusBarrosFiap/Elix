@@ -1,0 +1,58 @@
+diff --git a/node_modules/expo-modules-jsi/apple/Package.swift b/node_modules/expo-modules-jsi/apple/Package.swift
+index 77b0525..710611d 100644
+--- a/node_modules/expo-modules-jsi/apple/Package.swift
++++ b/node_modules/expo-modules-jsi/apple/Package.swift
+@@ -86,6 +86,31 @@ let package = Package(
+       swiftSettings: [
+         .interoperabilityMode(.Cxx),
+ 
++        // Downgraded from the package-wide Swift 6 mode: Xcode 26.2/26.3 (Swift 6.2) flags
++        // the nonisolated(unsafe) pointer captures in JavaScriptRuntime.swift's
++        // createFunctionClosure overloads as "sending risks causing data races", even though
++        // that pattern is intentional and documented as sound in the surrounding comments.
++        // v5 mode keeps this as a warning instead of a hard error.
++        // See https://github.com/expo/expo/issues/47539
++        //
++        // v5 mode also turns off other Swift-6-default behavior this code relies on, so those
++        // are re-enabled individually below (everything except strict concurrency checking):
++        //   - BareSlashRegexLiterals: the `/^[a-zA-Z_$][a-zA-Z0-9_$]*$/` literal in
++        //     JavaScriptRuntime.swift's identifier validation otherwise fails to parse as a
++        //     regex and is misread as division, producing bogus "'$' is not a valid digit in
++        //     integer literal" errors.
++        //   - GlobalActorIsolatedTypesUsability (SE-0434): lets JavaScriptPromise's
++        //     @JavaScriptActor-isolated init() be called from the synchronous nonisolated
++        //     contexts it's used from today.
++        //   - IsolatedDefaultValues (SE-0411): JavaScriptPromise's
++        //     `private let longLivedState = LongLivedState()` stored-property default calls
++        //     that same @JavaScriptActor-isolated init() from JavaScriptPromise's own
++        //     (nonisolated) synthesized init.
++        .swiftLanguageMode(.v5),
++        .enableUpcomingFeature("BareSlashRegexLiterals"),
++        .enableUpcomingFeature("GlobalActorIsolatedTypesUsability"),
++        .enableUpcomingFeature("IsolatedDefaultValues"),
++
+         // Enable some upcoming features that improve ergonomics and reduce executor hoppings
+         // https://github.com/swiftlang/swift-evolution/blob/main/proposals/0461-async-function-isolation.md
+         .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
+diff --git a/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI-Cxx/include/RuntimeScheduler.h b/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI-Cxx/include/RuntimeScheduler.h
+index 6115e87..957527c 100644
+--- a/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI-Cxx/include/RuntimeScheduler.h
++++ b/node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI-Cxx/include/RuntimeScheduler.h
+@@ -50,7 +50,7 @@ public:
+    `scheduleTask` dispatches through `fn`, which the host implements against
+    the real react::RuntimeScheduler.
+    */
+-  SWIFT_RETURNS_RETAINED RuntimeScheduler(void *scheduler, ScheduleFn fn) noexcept
++  RuntimeScheduler(void *scheduler, ScheduleFn fn) noexcept
+       : nativeScheduler(scheduler), scheduleFn(fn) {}
+ 
+   /**
+@@ -58,7 +58,7 @@ public:
+    caller's thread — intended for standalone runtimes (e.g. tests) that have
+    no React scheduler.
+    */
+-  SWIFT_RETURNS_RETAINED RuntimeScheduler() {}
++  RuntimeScheduler() {}
+ 
+   RuntimeScheduler(const RuntimeScheduler &) = delete;
+ 
