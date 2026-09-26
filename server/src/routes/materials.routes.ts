@@ -1,6 +1,6 @@
 import { Router } from "express";
 import multer from "multer";
-import { deviceAuth } from "../middlewares/deviceAuth";
+import { authMiddleware } from "../middlewares/authMiddleware";
 import {
   uploadMaterial,
   uploadYoutubeMaterial,
@@ -18,9 +18,9 @@ const upload = multer({
 
 export const materialsRouter = Router();
 
-materialsRouter.post("/", deviceAuth, upload.single("file"), uploadMaterial);
-materialsRouter.post("/youtube", deviceAuth, uploadYoutubeMaterial);
-materialsRouter.post("/notion", deviceAuth, uploadNotionMaterial);
-materialsRouter.get("/:id/view-url", deviceAuth, getMaterialViewUrlHandler);
-materialsRouter.get("/:id/notion-content", deviceAuth, getMaterialNotionContentHandler);
-materialsRouter.delete("/:id", deviceAuth, deleteMaterialHandler);
+materialsRouter.post("/", authMiddleware, upload.single("file"), uploadMaterial);
+materialsRouter.post("/youtube", authMiddleware, uploadYoutubeMaterial);
+materialsRouter.post("/notion", authMiddleware, uploadNotionMaterial);
+materialsRouter.get("/:id/view-url", authMiddleware, getMaterialViewUrlHandler);
+materialsRouter.get("/:id/notion-content", authMiddleware, getMaterialNotionContentHandler);
+materialsRouter.delete("/:id", authMiddleware, deleteMaterialHandler);

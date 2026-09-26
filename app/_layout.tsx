@@ -1,7 +1,9 @@
 import "@/global.css";
+import { AuthService } from "@/src/services/auth/auth.service";
 import { QuizQuestionsService } from "@/src/services/quiz/quiz.service";
 import { StudyContentService } from "@/src/services/studyContent/studyContent.service";
 import { UserService } from "@/src/services/user/user.service";
+import { useAuthStore } from "@/src/store/authStore";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { UploadStatusPill } from "@/src/components/UploadStatusPill";
 import {
@@ -31,11 +33,21 @@ export default function RootLayout() {
     Manrope_800ExtraBold,
   });
 
+  const session = useAuthStore((state) => state.session);
+
   useEffect(() => {
+    AuthService.initialize();
+  }, []);
+
+  useEffect(() => {
+    // Essas rotas exigem sessão (ver server/src/middlewares/authMiddleware.ts) —
+    // sem uma, a chamada só voltaria 401. Reroda quando o login/logout mudar a sessão.
+    if (!session) return;
+
     UserService.initialize();
     StudyContentService.initialize();
     QuizQuestionsService.initialize();
-  }, []);
+  }, [session]);
 
   useEffect(() => {
     // fontError não trava o app pra sempre na splash — deixa seguir com o

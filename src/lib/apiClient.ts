@@ -1,5 +1,5 @@
 import { API_BASE_URL } from "./config";
-import { getDeviceId } from "./deviceId";
+import { supabase } from "./supabase";
 
 interface ApiFetchOptions {
   method?: "GET" | "POST" | "PATCH" | "DELETE";
@@ -9,14 +9,17 @@ interface ApiFetchOptions {
 }
 
 /**
- * Wrapper fino sobre fetch: injeta o header X-Device-Id (identidade anônima por
- * dispositivo, ver src/lib/deviceId.ts), monta a URL a partir de API_BASE_URL e
+ * Wrapper fino sobre fetch: injeta o header Authorization com o access token
+ * da sessão do Supabase Auth, monta a URL a partir de API_BASE_URL e
  * padroniza erro em caso de resposta não-2xx.
  */
 export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): Promise<T> {
-  const deviceId = await getDeviceId();
+  const { data } = await supabase.auth.getSession();
 
-  const headers: Record<string, string> = { "X-Device-Id": deviceId };
+  const headers: Record<string, string> = {};
+  if (data.session?.access_token) {
+    headers["Authorization"] = `Bearer ${data.session.access_token}`;
+  }
 
   let body: BodyInit | undefined;
   if (options.rawBody) {

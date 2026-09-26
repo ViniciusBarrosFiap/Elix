@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { deviceAuth } from "../middlewares/deviceAuth";
+import { authMiddleware } from "../middlewares/authMiddleware";
 import {
   deleteConnection,
   getAuthUrl,
@@ -15,8 +15,8 @@ export const notionRouter = Router();
 // autenticação, o `state` é quem identifica o usuário (ver notion.controller.ts).
 notionRouter.get("/callback", oauthCallback);
 
-notionRouter.get("/auth-url", deviceAuth, getAuthUrl);
-notionRouter.get("/status", deviceAuth, getStatus);
-notionRouter.delete("/connection", deviceAuth, deleteConnection);
-notionRouter.get("/pages", deviceAuth, getPages);
-notionRouter.get("/pages/:pageId/content", deviceAuth, getPageContentHandler);
+notionRouter.get("/auth-url", authMiddleware, getAuthUrl);
+notionRouter.get("/status", authMiddleware, getStatus);
+notionRouter.delete("/connection", authMiddleware, deleteConnection);
+notionRouter.get("/pages", authMiddleware, getPages);
+notionRouter.get("/pages/:pageId/content", authMiddleware, getPageContentHandler);

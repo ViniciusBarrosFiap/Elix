@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { supabase } from "../config/supabase";
-import { AuthedUserRow } from "../middlewares/deviceAuth";
+import { AuthedUserRow } from "../middlewares/authMiddleware";
 import { updateUserSchema } from "../schemas/userData.schema";
 import { syncMacroTemasFromDisciplinas } from "../services/macroTemas.service";
 import { HttpError } from "../middlewares/errorHandler";
@@ -19,7 +19,7 @@ function toUserData(row: AuthedUserRow) {
   };
 }
 
-// POST /api/users/identify — deviceAuth já resolveu/criou o usuário; só devolve.
+// POST /api/users/identify — authMiddleware já resolveu/criou o usuário; só devolve.
 export async function identify(req: Request, res: Response) {
   return res.status(200).json(toUserData(req.user!));
 }

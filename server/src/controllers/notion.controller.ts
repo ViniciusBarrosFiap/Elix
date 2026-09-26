@@ -12,8 +12,8 @@ import {
 import { consumirState } from "../services/notion/oauthState";
 
 // GET /api/notion/auth-url — devolve a URL de autorização do Notion pro app
-// abrir num browser in-app (ex: expo-web-browser). Autenticado por
-// X-Device-Id: o userId fica amarrado ao state gerado aqui.
+// abrir num browser in-app (ex: expo-web-browser). Autenticado por sessão do
+// Supabase Auth (ver authMiddleware): o userId fica amarrado ao state gerado aqui.
 //
 // `redirect_uri` (query, opcional): deep link específico dessa sessão do app
 // pra onde o callback deve voltar no final. Necessário no Expo Go, onde o
@@ -35,7 +35,7 @@ function montarRedirect(destino: string | undefined, params: Record<string, stri
 
 // GET /api/notion/callback — o Notion redireciona pra cá depois que o
 // usuário autoriza (ou cancela) no navegador. É uma rota PÚBLICA (sem
-// deviceAuth): o Notion faz um GET puro, sem headers customizados — o
+// authMiddleware): o Notion faz um GET puro, sem headers customizados — o
 // `state` é o único jeito de saber qual usuário estava conectando (e pra
 // onde voltar, ver `returnTo` em oauthState.ts). O expo-web-browser detecta
 // esse redirect final e fecha a sessão automaticamente.

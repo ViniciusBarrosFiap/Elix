@@ -3,7 +3,7 @@ import WebSocket from "ws";
 import { env } from "./env";
 
 // Service Role Key: acesso total ao banco. Nunca expor esse client ao app —
-// o isolamento por usuário é responsabilidade do backend (ver deviceAuth middleware).
+// o isolamento por usuário é responsabilidade do backend (ver authMiddleware).
 //
 // Não usamos Realtime (só REST/RPC/Storage), mas o supabase-js inicializa o
 // RealtimeClient de qualquer forma no construtor, e Node < 22 não tem WebSocket

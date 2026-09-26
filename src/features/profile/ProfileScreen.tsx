@@ -5,7 +5,7 @@ import {
   Cloud,
   Droplet,
   Flame,
-  FlaskConical,
+  LogOut,
   Pencil,
   Trash2,
   User,
@@ -15,11 +15,8 @@ import React, { useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, StatusBar, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-import { resetDeviceId } from "@/src/lib/deviceId";
+import { AuthService } from "@/src/services/auth/auth.service";
 import { UserRepository } from "@/src/services/user/user.repository";
-import { UserService } from "@/src/services/user/user.service";
-import { StudyContentService } from "@/src/services/studyContent/studyContent.service";
-import { QuizQuestionsService } from "@/src/services/quiz/quiz.service";
 import { useUserDataStore } from "@/src/store/userDataStore";
 import { useStudyContentStore } from "@/src/store/studyContentStore";
 import { useQuizQuestionsStore } from "@/src/store/quizQuestionsStore";
@@ -108,6 +105,31 @@ export default function ProfileScreen() {
   const userData = useUserDataStore((state) => state.data);
   const studyContentData = useStudyContentStore((state) => state.data);
   const [apagando, setApagando] = useState(false);
+  const [saindo, setSaindo] = useState(false);
+
+  const sair = () => {
+    Alert.alert("Sair", "Você vai precisar entrar de novo com seu e-mail e senha.", [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Sair",
+        style: "destructive",
+        onPress: async () => {
+          setSaindo(true);
+          try {
+            await AuthService.signOut();
+            useUserDataStore.getState().reset();
+            useStudyContentStore.getState().reset();
+            useQuizQuestionsStore.getState().reset();
+            router.replace("/");
+          } catch {
+            Alert.alert("Erro", "Não foi possível sair agora. Tente de novo.");
+          } finally {
+            setSaindo(false);
+          }
+        },
+      },
+    ]);
+  };
 
   // Domínio médio real, calculado a partir do progresso já persistido de
   // cada disciplina (mesmo campo mostrado em studyContents/[id]/index.tsx) — não é
@@ -122,7 +144,7 @@ export default function ProfileScreen() {
   const apagarDados = () => {
     Alert.alert(
       "Apagar meus dados",
-      "Isso apaga permanentemente seu progresso no servidor (disciplinas, materiais, conceitos, perguntas) e desconecta este aparelho — não tem como desfazer. Deseja continuar?",
+      "Isso apaga permanentemente seu progresso no servidor (disciplinas, materiais, conceitos, perguntas) e a sua conta — não tem como desfazer. Deseja continuar?",
       [
         { text: "Cancelar", style: "cancel" },
         {
@@ -131,20 +153,16 @@ export default function ProfileScreen() {
           onPress: async () => {
             setApagando(true);
             try {
-              // Precisa rodar ANTES de trocar o device_id — é ele quem
-              // autentica qual usuário apagar no servidor (ver deviceAuth.ts).
+              // Precisa rodar ANTES de sair — é a sessão atual que autentica
+              // qual usuário apagar no servidor (ver authMiddleware.ts).
               await UserRepository.deleteAccount();
 
-              await resetDeviceId();
+              // Sem conta não tem como "reidentificar" — volta pra
+              // welcome/login, igual a um logout comum.
+              await AuthService.signOut();
               useUserDataStore.getState().reset();
               useStudyContentStore.getState().reset();
               useQuizQuestionsStore.getState().reset();
-
-              // Reidentifica o aparelho do zero (novo device_id -> novo
-              // usuário no servidor), igual ao boot do app em app/_layout.tsx.
-              await UserService.initialize();
-              await StudyContentService.initialize();
-              await QuizQuestionsService.initialize();
 
               router.replace("/");
             } catch {
@@ -249,16 +267,14 @@ export default function ProfileScreen() {
               </View>
             }
           />
-          {__DEV__ && (
-            <>
-              <View style={{ height: 1, backgroundColor: "rgba(255,255,255,0.06)" }} />
-              <SettingsRow
-                icon={<FlaskConical size={18} color={PRIMARY_LIGHT} />}
-                label="Testes"
-                onPress={() => router.push("/testes" as any)}
-              />
-            </>
-          )}
+          <View style={{ height: 1, backgroundColor: "rgba(255,255,255,0.06)" }} />
+
+          <SettingsRow
+            icon={<LogOut size={18} color={PRIMARY_LIGHT} />}
+            label="Sair"
+            loading={saindo}
+            onPress={sair}
+          />
           <View style={{ height: 1, backgroundColor: "rgba(255,255,255,0.06)" }} />
 
           <SettingsRow

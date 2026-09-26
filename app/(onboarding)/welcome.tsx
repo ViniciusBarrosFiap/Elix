@@ -7,8 +7,6 @@ import {
   View,
 } from "react-native";
 import '@/global.css'
-import { StudyContentService } from '@/src/services/studyContent/studyContent.service';
-import { UserService } from '@/src/services/user/user.service';
 import { colors } from '@/src/theme/colors';
 
 export default function WelcomeScreen() {
@@ -16,20 +14,8 @@ export default function WelcomeScreen() {
   const elixLogoPath = require('@/assets/images/elix-logo.png')
   const router = useRouter()
 
-  async function handleAccessBtns(accessType: 'signUp' | 'signIn') {
-    if(accessType === 'signUp') {
-      router.push('/(auth)/signUp')
-    } else {
-      await UserService.initialize()
-      await StudyContentService.initialize()
-      router.replace({
-        pathname: "/loadingScreen",
-        params: {
-          next: "/home",
-          title: "Aguarde um momento..."
-        }
-      })
-    }
+  function handleAccessBtns(accessType: 'signUp' | 'signIn') {
+    router.push(accessType === 'signUp' ? '/(auth)/register' : '/(auth)/login')
   }
 
   return (

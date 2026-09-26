@@ -9,7 +9,7 @@ export const UserService = {
     // Modo Teste (ver app/(tabs)/(profile)/testes.tsx) injeta os dados
     // diretamente no store — pular a chamada real evita que ela sobrescreva
     // o mock assim que a tela ganha foco de novo.
-    if (isDevTestModeAtivo()) return;
+    if (isDevTestModeAtivo()) return useUserDataStore.getState().data as UserData;
 
     const data =
       await UserRepository.getUser();
@@ -17,6 +17,8 @@ export const UserService = {
     useUserDataStore
       .getState()
       .setData(data);
+
+    return data;
   },
 
   async updateUser(

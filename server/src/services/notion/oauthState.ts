@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 
 // Handshake do OAuth: o app chama GET /api/notion/auth-url autenticado
-// (X-Device-Id), a gente gera um `state` aleatório e guarda "esse state
+// (sessão do Supabase Auth), a gente gera um `state` aleatório e guarda "esse state
 // pertence a esse userId" aqui. Quando o Notion redireciona de volta pro
 // /api/notion/callback, essa é a única forma de saber QUAL usuário estava
 // completando o fluxo — o redirect do Notion é um GET puro do navegador,

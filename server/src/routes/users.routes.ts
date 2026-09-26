@@ -1,10 +1,10 @@
 import { Router } from "express";
-import { deviceAuth } from "../middlewares/deviceAuth";
+import { authMiddleware } from "../middlewares/authMiddleware";
 import { getMe, identify, updateMe, deleteMe } from "../controllers/users.controller";
 
 export const usersRouter = Router();
 
-usersRouter.post("/identify", deviceAuth, identify);
-usersRouter.get("/me", deviceAuth, getMe);
-usersRouter.patch("/me", deviceAuth, updateMe);
-usersRouter.delete("/me", deviceAuth, deleteMe);
+usersRouter.post("/identify", authMiddleware, identify);
+usersRouter.get("/me", authMiddleware, getMe);
+usersRouter.patch("/me", authMiddleware, updateMe);
+usersRouter.delete("/me", authMiddleware, deleteMe);

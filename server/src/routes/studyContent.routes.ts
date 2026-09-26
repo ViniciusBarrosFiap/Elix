@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { deviceAuth } from "../middlewares/deviceAuth";
+import { authMiddleware } from "../middlewares/authMiddleware";
 import { getStudyContentHandler } from "../controllers/studyContent.controller";
 
 export const studyContentRouter = Router();
 
-studyContentRouter.get("/", deviceAuth, getStudyContentHandler);
+studyContentRouter.get("/", authMiddleware, getStudyContentHandler);
